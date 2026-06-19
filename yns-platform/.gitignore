@@ -1,0 +1,19 @@
+.DS_Store
+
+# dependencies
+node_modules
+
+# build output
+.next
+dist
+coverage
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# python
+.venv
+__pycache__
+.pytest_cache
