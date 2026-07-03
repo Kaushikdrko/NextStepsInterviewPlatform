@@ -1,37 +1,36 @@
 {
-  "name": "yns-web",
-  "version": "0.1.0",
+  "name": "nextsteps-interview-platform",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "next start"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.5.4",
-    "@hookform/resolvers": "^5.4.0",
-    "@radix-ui/react-accordion": "^1.2.14",
-    "@radix-ui/react-dialog": "^1.1.17",
-    "@radix-ui/react-progress": "^1.1.10",
-    "@radix-ui/react-tabs": "^1.1.15",
+    "@hookform/resolvers": "^3.4.2",
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-progress": "^1.1.1",
+    "@radix-ui/react-radio-group": "^1.1.1",
+    "@radix-ui/react-separator": "^1.1.1",
     "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.108.2",
-    "clsx": "^2.1.1",
-    "lucide-react": "^1.20.0",
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-hook-form": "^7.79.0",
-    "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "@supabase/supabase-js": "^2.108.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-hook-form": "^7.53.2",
+    "tailwind-merge": "^2.4.1",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.6.3"
   }
 }

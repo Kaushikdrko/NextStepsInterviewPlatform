@@ -1,6 +1,26 @@
+.DS_Store
+
+# docs / local notes
 claude.md
 docs/architecture.md
-yns-api/.venv/
-.env.local
-.env*.local
+
+# dependencies
+node_modules
 yns-web/node_modules
+yns-api/.venv/
+
+# build output
+.next
+dist
+coverage
+
+# env files
+.env
+.env.local
+.env.*.local
+.env*.local
+
+# python
+.venv
+__pycache__
+.pytest_cache
