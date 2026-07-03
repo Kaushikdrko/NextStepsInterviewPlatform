@@ -1,0 +1,6 @@
+claude.md
+docs/architecture.md
+yns-api/.venv/
+.env.local
+.env*.local
+yns-web/node_modules
