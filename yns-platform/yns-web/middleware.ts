@@ -1,16 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-function getAuthCookieName() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+import { updateSession } from '@/lib/supabase/middleware';
 
-  if (!supabaseUrl) {
-    return "sb-auth-token";
-  }
+const PROTECTED_PREFIXES = ["/onboarding", "/dashboard", "/sessions"];
 
-  return `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
-}
-
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname === "/login") {
@@ -21,8 +15,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-up", request.url));
   }
 
-  if (pathname.startsWith("/onboarding") && !request.cookies.has(getAuthCookieName())) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+  if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    const { response, user } = await updateSession(request);
+
+    if (!user) {
+      return NextResponse.redirect(new URL("/sign-in", request.url));
+    }
+
+    return response;
   }
 
   return NextResponse.next();

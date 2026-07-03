@@ -27,7 +27,7 @@ import { ReviewStep } from '@/components/onboarding/ReviewStep';
 import { SearchableSelectInput } from '@/components/onboarding/SearchableSelectInput';
 import { StepHeader } from '@/components/onboarding/StepHeader';
 import { FIELD_OPTIONS, MAJOR_OPTIONS, MAJOR_OR_FIELD_OPTIONS } from '@/lib/onboarding-options';
-import { submitOnboarding } from '@/lib/services/onboarding';
+import { submitOnboarding } from '@/app/actions/student';
 import { defaultValues, hasValidResumeFile, onboardingSchema, splitList } from '@/lib/validations/onboarding';
 import type { OnboardingFormValues, OnboardingSubmission, UserType } from '@/types/onboarding';
 
