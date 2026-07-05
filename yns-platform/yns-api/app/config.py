@@ -10,6 +10,7 @@ load_dotenv()
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
 
     @property
     def cors_origins(self) -> list[str]:
