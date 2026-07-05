@@ -2,6 +2,7 @@ import time
 from typing import Any
 
 from anthropic import Anthropic
+from pydantic import BaseModel
 
 from app.config import settings
 
@@ -15,12 +16,20 @@ def get_anthropic_client() -> Anthropic:
     return _client
 
 
+def _extract_result(response: Any) -> Any:
+    for block in response.content:
+        if block.type == "tool_use":
+            return block.input
+    return {"text": response.content[0].text}
+
+
 def call_claude(
     messages: list[dict[str, Any]],
     system: str,
     tools: list[dict[str, Any]] | None = None,
     model: str = "claude-haiku-4-5",
     use_cache: bool = True,
+    response_model: type[BaseModel] | None = None,
 ) -> Any:
     if use_cache:
         system_block = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
@@ -43,6 +52,9 @@ def call_claude(
         start = time.monotonic()
         try:
             response = client.messages.create(**kwargs)
+            result = _extract_result(response)
+            if response_model is not None:
+                response_model(**result)
             break
         except Exception as exc:
             if attempt == 1:
@@ -61,7 +73,4 @@ def call_claude(
         f"out={response.usage.output_tokens} latency={latency_ms}ms"
     )
 
-    for block in response.content:
-        if block.type == "tool_use":
-            return block.input
-    return {"text": response.content[0].text}
+    return result
