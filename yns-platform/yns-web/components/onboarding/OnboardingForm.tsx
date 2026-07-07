@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, ArrowRight, BookOpen, BriefcaseBusiness, Building2, CheckCircle2, ClipboardCheck, FileText, GraduationCap, Target, User, XCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 
 import { Alert } from '@/components/ui/alert';
@@ -34,6 +35,7 @@ import type { OnboardingFormValues, OnboardingSubmission, UserType } from '@/typ
 type FieldName = keyof OnboardingFormValues;
 
 export function OnboardingForm() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [completed, setCompleted] = useState(false);
   const [submission, setSubmission] = useState<OnboardingSubmission | null>(null);
@@ -52,6 +54,7 @@ export function OnboardingForm() {
   const watchedValues = form.watch();
 
   const isCollegeFlow = watchedUserType === 'college' || watchedUserType === 'recent_grad';
+  const isRecentGraduateFlow = watchedUserType === 'recent_grad';
   const totalSteps = watchedUserType === 'high_school' ? 4 : 5;
 
   useEffect(() => {
@@ -301,6 +304,7 @@ export function OnboardingForm() {
         resume_file: values.resume_file,
         has_job_posting: values.has_job_posting === true,
         company: values.has_job_posting === true ? values.company.trim() : '',
+        posting_url: values.has_job_posting === true ? values.posting_url.trim() : '',
         job_description: values.has_job_posting === true ? values.job_description.trim() : '',
       },
     };
@@ -327,6 +331,7 @@ export function OnboardingForm() {
 
     setSubmission(finalObject);
     setCompleted(true);
+    router.push('/dashboard');
   };
 
   if (completed && submission) {
@@ -461,11 +466,20 @@ export function OnboardingForm() {
                           <FormLabel>What job level role are you preparing for?</FormLabel>
                           <FormControl>
                             <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-3">
-                              <OptionCard id="internship" title="Internship" description="Practice for early career internship interviews" icon={BriefcaseBusiness} selected={field.value === 'internship'} />
-                              <OptionCard id="entry_level" title="Entry-level" description="Prepare for your first full-time role" icon={Target} selected={field.value === 'entry_level'} />
-                              <OptionCard id="junior" title="Junior" description="Focus on junior role interview expectations" icon={User} selected={field.value === 'junior'} />
-                              <OptionCard id="mid_level" title="Mid-level" description="Practice for roles with more ownership" icon={BriefcaseBusiness} selected={field.value === 'mid_level'} />
-                              <OptionCard id="senior" title="Senior" description="Prepare for leadership and systems-level interviews" icon={Target} selected={field.value === 'senior'} />
+                              {isRecentGraduateFlow ? (
+                                <>
+                                  <OptionCard id="entry_level" title="Entry-level" description="Prepare for your first full-time role" icon={Target} selected={field.value === 'entry_level'} />
+                                  <OptionCard id="junior" title="Junior" description="Focus on junior role interview expectations" icon={User} selected={field.value === 'junior'} />
+                                  <OptionCard id="mid_level" title="Mid-level" description="Practice for roles with more ownership" icon={BriefcaseBusiness} selected={field.value === 'mid_level'} />
+                                  <OptionCard id="senior" title="Senior" description="Prepare for leadership and systems-level interviews" icon={Target} selected={field.value === 'senior'} />
+                                </>
+                              ) : (
+                                <>
+                                  <OptionCard id="internship" title="Internship" description="Practice for early career internship interviews" icon={BriefcaseBusiness} selected={field.value === 'internship'} />
+                                  <OptionCard id="part_time" title="Part-time" description="Prepare for part-time roles during school" icon={User} selected={field.value === 'part_time'} />
+                                  <OptionCard id="entry_level" title="Entry-level" description="Prepare for your first full-time role" icon={Target} selected={field.value === 'entry_level'} />
+                                </>
+                              )}
                             </RadioGroup>
                           </FormControl>
                           <FormMessage />
@@ -531,7 +545,7 @@ export function OnboardingForm() {
                   {currentStep === 3 && isCollegeFlow ? (
                     <section className="space-y-6">
                       <StepHeader title="Add your skills and resume" description="Share what you already know so the AI can personalize practice questions." icon={FileText} />
-                      <FormField control={form.control} name="skills">{({ field }) => <FormItem><FormLabel>What skills do you currently have?</FormLabel><FormControl><Textarea {...field} placeholder="Java, Python, React, SQL, AWS, communication, leadership" /></FormControl><FormDescription>Separate multiple items with commas.</FormDescription><FormMessage /></FormItem>}</FormField>
+                      <FormField control={form.control} name="skills">{({ field }) => <FormItem><FormLabel>What skills do you currently have?</FormLabel><FormControl><Textarea {...field} placeholder="" /></FormControl><FormDescription>Separate multiple items with commas.</FormDescription><FormMessage /></FormItem>}</FormField>
                       <FileUpload control={form.control} name="resume_file" label="Upload your resume" description="Optional. Accepted file types: PDF, DOC, DOCX." />
                     </section>
                   ) : null}
@@ -539,7 +553,7 @@ export function OnboardingForm() {
                   {currentStep === 3 && !isCollegeFlow ? (
                     <section className="space-y-6">
                       <StepHeader title="Add student background" description="Share optional context and any specific prompt you want to practice." icon={User} />
-                      <FormField control={form.control} name="activities">{({ field }) => <FormItem><FormLabel>What activities, clubs, or experiences do you want the AI to know about?</FormLabel><FormControl><Textarea {...field} placeholder="Debate team, robotics club, community service, leadership roles..." /></FormControl><FormDescription>Optional context that can make practice questions more relevant.</FormDescription><FormMessage /></FormItem>}</FormField>
+                      <FormField control={form.control} name="activities">{({ field }) => <FormItem><FormLabel>What activities, clubs, or experiences do you want the AI to know about?</FormLabel><FormControl><Textarea {...field} placeholder="" /></FormControl><FormDescription>Optional context that can make practice questions more relevant.</FormDescription><FormMessage /></FormItem>}</FormField>
                       <FileUpload control={form.control} name="resume_file" label="Upload your resume" description="Optional. Accepted file types: PDF, DOC, DOCX." />
                       <FormField control={form.control} name="has_specific_prompt">{({ field }) => (
                         <FormItem>
@@ -581,7 +595,8 @@ export function OnboardingForm() {
                       {watchedHasJobPosting ? (
                         <div className="grid gap-4 md:grid-cols-2">
                           <FormField control={form.control} name="company">{({ field }) => <FormItem><FormLabel>Company</FormLabel><FormControl><Input {...field} placeholder="e.g. Acme Labs" /></FormControl><FormMessage /></FormItem>}</FormField>
-                          <FormField control={form.control} name="job_description">{({ field }) => <FormItem><FormLabel>Job description</FormLabel><FormControl><Textarea {...field} placeholder="Paste the posting or a summary of responsibilities." /></FormControl><FormMessage /></FormItem>}</FormField>
+                          <FormField control={form.control} name="posting_url">{({ field }) => <FormItem><FormLabel>Posting URL</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>}</FormField>
+                          <FormField control={form.control} name="job_description">{({ field }) => <FormItem className="md:col-span-2"><FormLabel>Job description</FormLabel><FormControl><Textarea {...field} placeholder="Paste the posting or a summary of responsibilities." /></FormControl><FormMessage /></FormItem>}</FormField>
                         </div>
                       ) : null}
                     </section>

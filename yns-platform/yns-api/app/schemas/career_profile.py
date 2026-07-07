@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-TargetLevel = Literal["internship", "entry_level", "junior", "mid_level", "senior"]
+TargetLevel = Literal["internship", "part_time", "entry_level", "junior", "mid_level", "senior"]
 
 
 class CareerProfileResponse(BaseModel):

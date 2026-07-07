@@ -8,6 +8,7 @@ export interface CareerProfileDraft {
   resume_file: File | null;
   has_job_posting: boolean;
   company: string;
+  posting_url: string;
   job_description: string;
 }
 
@@ -42,6 +43,7 @@ export interface OnboardingFormValues {
   resume_file: File | null;
   has_job_posting: boolean | null;
   company: string;
+  posting_url: string;
   job_description: string;
   grade: string;
   target_colleges: string;

@@ -121,6 +121,7 @@ export async function submitOnboarding(data: FinalOnboardingPayload): Promise<Su
         company: careerProfile.company,
         job_title: null,
         job_description: careerProfile.job_description,
+        posting_url: careerProfile.posting_url || null,
         updated_at: now,
       };
 

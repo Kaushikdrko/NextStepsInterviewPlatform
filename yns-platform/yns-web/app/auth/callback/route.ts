@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
 
 import { getPostLoginRedirect } from "@/lib/services/auth";
+import { getSupabaseCookieOptions } from "@/lib/supabase/client";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
         responseCookies.push(...cookiesToSet);
       },
     },
+    cookieOptions: getSupabaseCookieOptions(),
   });
 
   const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);

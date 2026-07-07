@@ -12,12 +12,22 @@ export function getSupabaseAuthStorageKey() {
   return `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
 }
 
+export function getSupabaseCookieOptions() {
+  return {
+    name: getSupabaseAuthStorageKey(),
+    path: "/",
+    sameSite: "lax" as const,
+  };
+}
+
 export function createSupabaseBrowserClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing Supabase environment variables.");
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: getSupabaseCookieOptions(),
+  });
 }
 
 export function persistSessionForServer(_session?: Session) {

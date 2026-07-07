@@ -17,6 +17,7 @@ const profileLabels = {
 
 const targetLevelLabels: Record<string, string> = {
   internship: 'Internship',
+  part_time: 'Part-time',
   entry_level: 'Entry-level',
   junior: 'Junior',
   mid_level: 'Mid-level',
@@ -93,6 +94,7 @@ export function ReviewStep({ submission, onEdit }: ReviewStepProps) {
                 {submission.career_profile.has_job_posting ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <DetailItem label="Company" value={submission.career_profile.company} />
+                    <DetailItem label="Posting URL" value={submission.career_profile.posting_url || 'Not added'} muted={!submission.career_profile.posting_url} />
                     <DetailItem label="Job description" value={submission.career_profile.job_description} />
                   </div>
                 ) : null}
