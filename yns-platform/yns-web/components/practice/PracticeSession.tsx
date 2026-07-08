@@ -201,7 +201,6 @@ export function PracticeSession() {
 
   const [assistantSessionId, setAssistantSessionId] = useState<string | null>(null);
   const [assistantQuestions, setAssistantQuestions] = useState<InterviewQuestion[]>([]);
-  const [assistantMessage, setAssistantMessage] = useState('');
   const [assistantError, setAssistantError] = useState('');
   const [assistantRestartKey, setAssistantRestartKey] = useState(0);
   const [isPreparingAssistant, setIsPreparingAssistant] = useState(false);
@@ -261,7 +260,6 @@ export function PracticeSession() {
     setIsComplete(false);
     setAssistantSessionId(null);
     setAssistantQuestions([]);
-    setAssistantMessage('');
     setAssistantError('');
     setIsPreparingAssistant(false);
     setIsSubmittingAnswer(false);
@@ -285,7 +283,6 @@ export function PracticeSession() {
       try {
         setIsPreparingAssistant(true);
         setAssistantError('');
-        setAssistantMessage('Preparing personalized AI questions...');
 
         const assistantSession = await createAssistantSession(sessionType);
 
@@ -293,12 +290,10 @@ export function PracticeSession() {
 
         setAssistantSessionId(assistantSession.session_id);
         setAssistantQuestions(assistantSession.session_plan.questions.map((question) => mapPlannedQuestion(question, selectedMode)));
-        setAssistantMessage('AI assistant ready. Your answers will receive evaluator feedback.');
       } catch (error) {
         if (isMounted) {
           setAssistantSessionId(null);
           setAssistantQuestions([]);
-          setAssistantMessage('');
           setAssistantError(error instanceof Error ? error.message : 'AI assistant is unavailable. Using built-in practice questions.');
         }
       } finally {
@@ -454,7 +449,6 @@ export function PracticeSession() {
         if (assistantSessionId) {
           const turn = await submitAssistantTurn(assistantSessionId, currentQuestionIndex, answer.trim());
           feedback = getEvaluationFeedback(turn.evaluation);
-          setAssistantMessage(turn.response_text);
         }
 
         saveCurrentAnswer(answer, feedback);
@@ -583,7 +577,6 @@ export function PracticeSession() {
     setCompletionError('');
     setAssistantSessionId(null);
     setAssistantQuestions([]);
-    setAssistantMessage('');
     setAssistantError('');
     setIsPreparingAssistant(false);
     setIsSubmittingAnswer(false);
@@ -884,7 +877,7 @@ export function PracticeSession() {
             </div>
           </header>
 
-          {assistantMessage || assistantError || isPreparingAssistant ? (
+          {assistantError || isPreparingAssistant ? (
             <Alert className={cn('flex gap-3 border-indigo-100 bg-indigo-50 text-indigo-900', assistantError && 'border-amber-200 bg-amber-50 text-amber-900')}>
               <span
                 className={cn(
@@ -894,14 +887,12 @@ export function PracticeSession() {
               >
                 {isPreparingAssistant ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : assistantError ? (
-                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
                 ) : (
-                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
                 )}
               </span>
               <p className="text-sm font-bold leading-6">
-                {isPreparingAssistant ? 'Preparing personalized AI questions...' : assistantError || assistantMessage}
+                {isPreparingAssistant ? 'Preparing personalized AI questions...' : assistantError}
               </p>
             </Alert>
           ) : null}
@@ -922,7 +913,6 @@ export function PracticeSession() {
                 </div>
 
                 <p className="mt-6 text-xl font-extrabold leading-tight text-slate-950">{currentQuestion.question}</p>
-                {currentQuestion.intent ? <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{currentQuestion.intent}</p> : null}
               </article>
 
               <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -95,9 +95,11 @@ async function assistantFetch<T>(path: string, init?: RequestInit): Promise<T> {
     let detail = `Assistant request failed: ${response.status}`;
 
     try {
-      const body = (await response.json()) as { detail?: string };
+      const body = (await response.json()) as { detail?: string; error?: string };
       if (body.detail) {
         detail = body.detail;
+      } else if (body.error) {
+        detail = body.error;
       }
     } catch {
       // Keep the status-based message when the response is not JSON.
