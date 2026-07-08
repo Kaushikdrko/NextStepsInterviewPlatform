@@ -1,33 +1,74 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { CheckCircle2, Flame, MessageSquare, Star } from 'lucide-react';
 
-const stats = [
-  {
-    label: 'Interviews Completed',
-    value: '0',
-    icon: CheckCircle2,
-    iconClassName: 'bg-blue-50 text-blue-500',
-  },
-  {
-    label: 'Questions Answered',
-    value: '0',
-    icon: MessageSquare,
-    iconClassName: 'bg-purple-50 text-purple-500',
-  },
-  {
-    label: 'Avg. Feedback Score',
-    value: '-',
-    icon: Star,
-    iconClassName: 'bg-amber-50 text-amber-500',
-  },
-  {
-    label: 'Practice Streak',
-    value: '0 days',
-    icon: Flame,
-    iconClassName: 'bg-rose-50 text-rose-500',
-  },
-];
+import {
+  getInterviewDashboardStats,
+  INTERVIEW_FEEDBACK_UPDATED_EVENT,
+  type InterviewDashboardStats,
+} from '@/lib/services/interview-feedback';
+
+const emptyStats: InterviewDashboardStats = {
+  interviewsCompleted: 0,
+  questionsAnswered: 0,
+  practiceStreakDays: 0,
+};
+
+function formatStreak(days: number) {
+  return `${days} ${days === 1 ? 'day' : 'days'}`;
+}
 
 export function StatsSection() {
+  const [dashboardStats, setDashboardStats] = useState<InterviewDashboardStats>(emptyStats);
+
+  useEffect(() => {
+    function refreshStats() {
+      setDashboardStats(getInterviewDashboardStats());
+    }
+
+    refreshStats();
+
+    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshStats);
+    window.addEventListener('storage', refreshStats);
+    window.addEventListener('focus', refreshStats);
+    document.addEventListener('visibilitychange', refreshStats);
+
+    return () => {
+      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshStats);
+      window.removeEventListener('storage', refreshStats);
+      window.removeEventListener('focus', refreshStats);
+      document.removeEventListener('visibilitychange', refreshStats);
+    };
+  }, []);
+
+  const stats = [
+    {
+      label: 'Interviews Completed',
+      value: String(dashboardStats.interviewsCompleted),
+      icon: CheckCircle2,
+      iconClassName: 'bg-blue-50 text-blue-500',
+    },
+    {
+      label: 'Questions Answered',
+      value: String(dashboardStats.questionsAnswered),
+      icon: MessageSquare,
+      iconClassName: 'bg-purple-50 text-purple-500',
+    },
+    {
+      label: 'Avg. Feedback Score',
+      value: typeof dashboardStats.averageFeedbackScore === 'number' ? `${dashboardStats.averageFeedbackScore}%` : '-',
+      icon: Star,
+      iconClassName: 'bg-amber-50 text-amber-500',
+    },
+    {
+      label: 'Practice Streak',
+      value: formatStreak(dashboardStats.practiceStreakDays),
+      icon: Flame,
+      iconClassName: 'bg-rose-50 text-rose-500',
+    },
+  ];
+
   return (
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat) => (

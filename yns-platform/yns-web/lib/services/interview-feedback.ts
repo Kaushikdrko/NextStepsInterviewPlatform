@@ -40,6 +40,18 @@ export type InterviewFeedbackSession = {
   items: InterviewFeedbackItem[];
 };
 
+export type InterviewDashboardStats = {
+  interviewsCompleted: number;
+  questionsAnswered: number;
+  averageFeedbackScore?: number;
+  practiceStreakDays: number;
+};
+
+export type WeeklyPracticeProgressItem = {
+  day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+  questions: number;
+};
+
 type CreateInterviewFeedbackSessionInput = {
   userId: string;
   assistantSessionId?: string | null;
@@ -53,6 +65,7 @@ type CreateInterviewFeedbackSessionInput = {
 
 const STORAGE_PREFIX = 'yns.interviewFeedback.';
 const STORAGE_INDEX_KEY = 'yns.interviewFeedback.index';
+export const INTERVIEW_FEEDBACK_UPDATED_EVENT = 'yns:interview-feedback-updated';
 
 function createSessionId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -199,6 +212,7 @@ export function saveInterviewFeedbackSession(session: InterviewFeedbackSession) 
 
   const nextIndex = [session.sessionId, ...index.filter((id) => id !== session.sessionId)].slice(0, 20);
   window.localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(nextIndex));
+  window.dispatchEvent(new CustomEvent(INTERVIEW_FEEDBACK_UPDATED_EVENT));
 }
 
 export function getInterviewFeedbackSession(sessionId: string): InterviewFeedbackSession | null {
@@ -212,4 +226,105 @@ export function getInterviewFeedbackSession(sessionId: string): InterviewFeedbac
   } catch {
     return null;
   }
+}
+
+export function getInterviewFeedbackSessions(): InterviewFeedbackSession[] {
+  if (typeof window === 'undefined') return [];
+
+  const rawIndex = window.localStorage.getItem(STORAGE_INDEX_KEY);
+  let index: string[] = [];
+
+  try {
+    index = rawIndex ? (JSON.parse(rawIndex) as string[]) : [];
+  } catch {
+    index = [];
+  }
+
+  return index
+    .map((sessionId) => getInterviewFeedbackSession(sessionId))
+    .filter((session): session is InterviewFeedbackSession => Boolean(session))
+    .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function getPracticeStreakDays(sessions: InterviewFeedbackSession[]) {
+  const practicedDates = new Set(sessions.map((session) => getLocalDateKey(new Date(session.completedAt))));
+  if (practicedDates.size === 0) return 0;
+
+  const today = new Date();
+  const todayKey = getLocalDateKey(today);
+  const yesterday = addDays(today, -1);
+  const yesterdayKey = getLocalDateKey(yesterday);
+
+  let cursor = practicedDates.has(todayKey) ? today : practicedDates.has(yesterdayKey) ? yesterday : null;
+  if (!cursor) return 0;
+
+  let streakDays = 0;
+  while (practicedDates.has(getLocalDateKey(cursor))) {
+    streakDays += 1;
+    cursor = addDays(cursor, -1);
+  }
+
+  return streakDays;
+}
+
+export function getInterviewDashboardStats(): InterviewDashboardStats {
+  const sessions = getInterviewFeedbackSessions();
+  const scoredItems = sessions.flatMap((session) => session.items).filter((item) => typeof item.score === 'number' && item.userAnswer.trim().length > 0);
+  const averageFeedbackScore =
+    scoredItems.length > 0
+      ? Math.round(scoredItems.reduce((total, item) => total + (item.score ?? 0), 0) / scoredItems.length)
+      : undefined;
+
+  return {
+    interviewsCompleted: sessions.length,
+    questionsAnswered: sessions.reduce((total, session) => total + session.answeredQuestions, 0),
+    averageFeedbackScore,
+    practiceStreakDays: getPracticeStreakDays(sessions),
+  };
+}
+
+export function getWeeklyPracticeProgress(): WeeklyPracticeProgressItem[] {
+  const days: WeeklyPracticeProgressItem[] = [
+    { day: 'Mon', questions: 0 },
+    { day: 'Tue', questions: 0 },
+    { day: 'Wed', questions: 0 },
+    { day: 'Thu', questions: 0 },
+    { day: 'Fri', questions: 0 },
+    { day: 'Sat', questions: 0 },
+    { day: 'Sun', questions: 0 },
+  ];
+
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const monday = addDays(today, -daysSinceMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = addDays(monday, 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  for (const session of getInterviewFeedbackSessions()) {
+    const completedAt = new Date(session.completedAt);
+    if (completedAt < monday || completedAt > sunday) continue;
+
+    const completedDay = completedAt.getDay();
+    const dayIndex = completedDay === 0 ? 6 : completedDay - 1;
+    days[dayIndex].questions += session.answeredQuestions;
+  }
+
+  return days;
 }

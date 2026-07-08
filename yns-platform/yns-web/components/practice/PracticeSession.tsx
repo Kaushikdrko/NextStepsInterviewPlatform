@@ -196,6 +196,8 @@ export function PracticeSession() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedMode = getPracticeMode(searchParams.get('mode'));
+  const assistantSessionType = getAssistantSessionType(selectedMode);
+  const isAssistantMode = assistantSessionType !== null;
   const fallbackQuestions = useMemo(() => questionsByMode[selectedMode], [selectedMode]);
   const title = modeLabels[selectedMode];
 
@@ -229,16 +231,17 @@ export function PracticeSession() {
   const [jobPostingError, setJobPostingError] = useState('');
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
+  const isPreparingInterview = isAssistantMode && assistantQuestions.length === 0 && !assistantError;
   const questions = assistantQuestions.length > 0 ? assistantQuestions : fallbackQuestions;
   const currentQuestion = questions[currentQuestionIndex];
   const questionNumber = currentQuestionIndex + 1;
   const progressValue = (questionNumber / questions.length) * 100;
   const words = countWords(answer);
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const canSubmit = !isCompletingSession && !isSubmittingAnswer && !isPreparingAssistant && (answer.trim().length > 0 || isSubmitted);
+  const canSubmit = !isCompletingSession && !isSubmittingAnswer && !isPreparingInterview && (answer.trim().length > 0 || isSubmitted);
 
   useEffect(() => {
-    if (isComplete || !hasStartedSession) return;
+    if (isComplete || !hasStartedSession || isPreparingInterview) return;
 
     const intervalId = window.setInterval(() => {
       setSessionTimeSeconds((seconds) => seconds + 1);
@@ -246,7 +249,7 @@ export function PracticeSession() {
     }, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [hasStartedSession, isComplete]);
+  }, [hasStartedSession, isComplete, isPreparingInterview]);
 
   useEffect(() => {
     setCurrentQuestionIndex(0);
@@ -270,8 +273,6 @@ export function PracticeSession() {
   }, [selectedMode, assistantRestartKey]);
 
   useEffect(() => {
-    const assistantSessionType = getAssistantSessionType(selectedMode);
-
     if (!assistantSessionType) {
       return;
     }
@@ -288,8 +289,17 @@ export function PracticeSession() {
 
         if (!isMounted) return;
 
+        const plannedQuestions = assistantSession.session_plan.questions.map((question) => mapPlannedQuestion(question, selectedMode));
+
+        if (plannedQuestions.length === 0) {
+          throw new Error('AI did not return any questions. Using built-in practice questions.');
+        }
+
         setAssistantSessionId(assistantSession.session_id);
-        setAssistantQuestions(assistantSession.session_plan.questions.map((question) => mapPlannedQuestion(question, selectedMode)));
+        setAssistantQuestions(plannedQuestions);
+        setCurrentQuestionIndex(0);
+        setSessionTimeSeconds(0);
+        setQuestionTimeSeconds(0);
       } catch (error) {
         if (isMounted) {
           setAssistantSessionId(null);
@@ -877,27 +887,45 @@ export function PracticeSession() {
             </div>
           </header>
 
-          {assistantError || isPreparingAssistant ? (
-            <Alert className={cn('flex gap-3 border-indigo-100 bg-indigo-50 text-indigo-900', assistantError && 'border-amber-200 bg-amber-50 text-amber-900')}>
-              <span
-                className={cn(
-                  'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700',
-                  assistantError && 'bg-amber-100 text-amber-700',
-                )}
-              >
-                {isPreparingAssistant ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
-                )}
+          {assistantError ? (
+            <Alert className="flex gap-3 border-amber-200 bg-amber-50 text-amber-900">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                <AlertCircle className="h-4 w-4" aria-hidden="true" />
               </span>
-              <p className="text-sm font-bold leading-6">
-                {isPreparingAssistant ? 'Preparing personalized AI questions...' : assistantError}
-              </p>
+              <p className="text-sm font-bold leading-6">{assistantError}</p>
             </Alert>
           ) : null}
 
-          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {isPreparingInterview ? (
+            <section className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm sm:p-8">
+              <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+                </span>
+                <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-slate-950">Building your personalized interview</h2>
+                <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                  The AI is preparing fresh questions for this session. Your timer will start once the first generated question is ready.
+                </p>
+
+                <div className="mt-8 grid w-full gap-3 sm:grid-cols-3">
+                  {[
+                    { icon: Sparkles, title: 'Personalizing', description: 'Using your selected practice mode' },
+                    { icon: Bot, title: 'Planning', description: 'Sequencing interview questions' },
+                    { icon: ShieldCheck, title: 'Calibrating', description: 'Preparing the feedback rubric' },
+                  ].map((item) => (
+                    <div key={item.title} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm">
+                        <item.icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <h3 className="mt-4 text-sm font-extrabold text-slate-950">{item.title}</h3>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          ) : (
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section className="space-y-5">
               <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex items-center gap-4">
@@ -1042,7 +1070,8 @@ export function PracticeSession() {
                 </ul>
               </section>
             </aside>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

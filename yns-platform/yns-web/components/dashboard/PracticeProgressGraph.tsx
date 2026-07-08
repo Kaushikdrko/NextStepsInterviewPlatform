@@ -1,6 +1,15 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 
-const weeklyProgress = [
+import {
+  getWeeklyPracticeProgress,
+  INTERVIEW_FEEDBACK_UPDATED_EVENT,
+  type WeeklyPracticeProgressItem,
+} from '@/lib/services/interview-feedback';
+
+const emptyWeeklyProgress: WeeklyPracticeProgressItem[] = [
   { day: 'Mon', questions: 0 },
   { day: 'Tue', questions: 0 },
   { day: 'Wed', questions: 0 },
@@ -13,23 +22,53 @@ const weeklyProgress = [
 const chartWidth = 560;
 const chartHeight = 190;
 const chartPadding = 28;
-const maxQuestions = Math.max(5, ...weeklyProgress.map((item) => item.questions));
 
-function getPoint(index: number, questions: number) {
+function getPoint(index: number, questions: number, totalDays: number, maxQuestions: number) {
   const usableWidth = chartWidth - chartPadding * 2;
   const usableHeight = chartHeight - chartPadding * 2;
-  const x = chartPadding + (index / (weeklyProgress.length - 1)) * usableWidth;
+  const x = chartPadding + (index / (totalDays - 1)) * usableWidth;
   const y = chartHeight - chartPadding - (questions / maxQuestions) * usableHeight;
 
   return { x, y };
 }
 
-const points = weeklyProgress.map((item, index) => getPoint(index, item.questions));
-const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
-const areaPath = `${linePath} L ${points[points.length - 1].x} ${chartHeight - chartPadding} L ${points[0].x} ${chartHeight - chartPadding} Z`;
-
 export function PracticeProgressGraph() {
+  const [weeklyProgress, setWeeklyProgress] = useState<WeeklyPracticeProgressItem[]>(emptyWeeklyProgress);
+
+  useEffect(() => {
+    function refreshProgress() {
+      setWeeklyProgress(getWeeklyPracticeProgress());
+    }
+
+    refreshProgress();
+
+    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshProgress);
+    window.addEventListener('storage', refreshProgress);
+    window.addEventListener('focus', refreshProgress);
+    document.addEventListener('visibilitychange', refreshProgress);
+
+    return () => {
+      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshProgress);
+      window.removeEventListener('storage', refreshProgress);
+      window.removeEventListener('focus', refreshProgress);
+      document.removeEventListener('visibilitychange', refreshProgress);
+    };
+  }, []);
+
   const totalQuestions = weeklyProgress.reduce((total, item) => total + item.questions, 0);
+  const maxQuestions = Math.max(5, ...weeklyProgress.map((item) => item.questions));
+
+  const { areaPath, linePath, points } = useMemo(() => {
+    const nextPoints = weeklyProgress.map((item, index) => getPoint(index, item.questions, weeklyProgress.length, maxQuestions));
+    const nextLinePath = nextPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+    const nextAreaPath = `${nextLinePath} L ${nextPoints[nextPoints.length - 1].x} ${chartHeight - chartPadding} L ${nextPoints[0].x} ${chartHeight - chartPadding} Z`;
+
+    return {
+      areaPath: nextAreaPath,
+      linePath: nextLinePath,
+      points: nextPoints,
+    };
+  }, [maxQuestions, weeklyProgress]);
 
   return (
     <section className="rounded-[10px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -73,8 +112,10 @@ export function PracticeProgressGraph() {
           ))}
         </svg>
 
-        <div className="flex items-center justify-center border-t border-slate-200 pt-4 text-sm font-semibold text-slate-500">
-          Your progress will update here once you start completing practice questions.
+        <div className="flex items-center justify-center border-t border-slate-200 pt-4 text-center text-sm font-semibold text-slate-500">
+          {totalQuestions > 0
+            ? 'Your weekly progress reflects completed interview sessions from this browser.'
+            : 'Your progress will update here once you start completing practice questions.'}
         </div>
       </div>
     </section>
