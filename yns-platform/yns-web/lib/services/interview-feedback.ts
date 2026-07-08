@@ -7,6 +7,10 @@ export type CompletedInterviewAnswer = {
   userAnswer: string;
   timeSpentSeconds: number;
   submittedAt: string;
+  aiFeedback?: string;
+  score?: number;
+  strengths?: string[];
+  improvements?: string[];
 };
 
 export type InterviewFeedbackItem = {
@@ -139,13 +143,20 @@ export function createInterviewFeedbackSession(input: CreateInterviewFeedbackSes
   const items = input.answers
     .slice()
     .sort((a, b) => a.questionNumber - b.questionNumber)
-    .map<InterviewFeedbackItem>((answer) => ({
-      questionId: answer.questionId,
-      questionNumber: answer.questionNumber,
-      questionText: answer.questionText,
-      userAnswer: answer.userAnswer,
-      ...evaluateAnswer(answer.userAnswer),
-    }));
+    .map<InterviewFeedbackItem>((answer) => {
+      const generatedFeedback = evaluateAnswer(answer.userAnswer);
+
+      return {
+        questionId: answer.questionId,
+        questionNumber: answer.questionNumber,
+        questionText: answer.questionText,
+        userAnswer: answer.userAnswer,
+        aiFeedback: answer.aiFeedback ?? generatedFeedback.aiFeedback,
+        score: answer.score ?? generatedFeedback.score,
+        strengths: answer.strengths ?? generatedFeedback.strengths,
+        improvements: answer.improvements ?? generatedFeedback.improvements,
+      };
+    });
 
   const scoredItems = items.filter((item) => typeof item.score === 'number' && item.userAnswer.trim().length > 0);
   const averageScore =

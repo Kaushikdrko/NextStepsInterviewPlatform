@@ -32,6 +32,13 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  createAssistantSession,
+  getAssistantSessionType,
+  submitAssistantTurn,
+  type PlannedQuestion,
+  type TurnEvaluation,
+} from '@/lib/services/interview-assistant';
 import { createInterviewFeedbackSession, saveInterviewFeedbackSession } from '@/lib/services/interview-feedback';
 import { getCurrentJobPosting, saveCurrentJobPosting } from '@/lib/services/job-postings';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -43,6 +50,8 @@ type InterviewQuestion = {
   id: string;
   mode: PracticeMode;
   question: string;
+  intent?: string;
+  rubricFocus?: string[];
 };
 
 type SubmittedAnswer = {
@@ -52,6 +61,10 @@ type SubmittedAnswer = {
   answer: string;
   timeSpentSeconds: number;
   submittedAt: string;
+  aiFeedback?: string;
+  score?: number;
+  strengths?: string[];
+  improvements?: string[];
 };
 
 type SpeechRecognitionEventLike = {
@@ -158,13 +171,41 @@ function upsertSubmittedAnswer(answers: SubmittedAnswer[], submittedAnswer: Subm
   return answers.map((item, index) => (index === existingIndex ? submittedAnswer : item));
 }
 
+function mapPlannedQuestion(question: PlannedQuestion, mode: PracticeMode): InterviewQuestion {
+  return {
+    id: question.id,
+    mode,
+    question: question.text,
+    intent: question.intent,
+    rubricFocus: question.rubric_focus,
+  };
+}
+
+function getEvaluationFeedback(evaluation: TurnEvaluation): Pick<SubmittedAnswer, 'aiFeedback' | 'score' | 'strengths' | 'improvements'> {
+  const dimensionFeedback = evaluation.dimensions.map((dimension) => `${dimension.name}: ${dimension.rationale}`);
+
+  return {
+    aiFeedback: [`Overall score: ${evaluation.overall}/5.`, ...dimensionFeedback].join(' '),
+    score: Math.round((evaluation.overall / 5) * 100),
+    strengths: evaluation.notable_strengths,
+    improvements: evaluation.notable_gaps,
+  };
+}
+
 export function PracticeSession() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedMode = getPracticeMode(searchParams.get('mode'));
-  const questions = useMemo(() => questionsByMode[selectedMode], [selectedMode]);
+  const fallbackQuestions = useMemo(() => questionsByMode[selectedMode], [selectedMode]);
   const title = modeLabels[selectedMode];
 
+  const [assistantSessionId, setAssistantSessionId] = useState<string | null>(null);
+  const [assistantQuestions, setAssistantQuestions] = useState<InterviewQuestion[]>([]);
+  const [assistantMessage, setAssistantMessage] = useState('');
+  const [assistantError, setAssistantError] = useState('');
+  const [assistantRestartKey, setAssistantRestartKey] = useState(0);
+  const [isPreparingAssistant, setIsPreparingAssistant] = useState(false);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [submittedAnswers, setSubmittedAnswers] = useState<SubmittedAnswer[]>([]);
@@ -189,12 +230,13 @@ export function PracticeSession() {
   const [jobPostingError, setJobPostingError] = useState('');
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
+  const questions = assistantQuestions.length > 0 ? assistantQuestions : fallbackQuestions;
   const currentQuestion = questions[currentQuestionIndex];
   const questionNumber = currentQuestionIndex + 1;
   const progressValue = (questionNumber / questions.length) * 100;
   const words = countWords(answer);
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const canSubmit = !isCompletingSession && (answer.trim().length > 0 || isSubmitted);
+  const canSubmit = !isCompletingSession && !isSubmittingAnswer && !isPreparingAssistant && (answer.trim().length > 0 || isSubmitted);
 
   useEffect(() => {
     if (isComplete || !hasStartedSession) return;
@@ -217,10 +259,60 @@ export function PracticeSession() {
     setIsRecording(false);
     setRecordingError('');
     setIsComplete(false);
+    setAssistantSessionId(null);
+    setAssistantQuestions([]);
+    setAssistantMessage('');
+    setAssistantError('');
+    setIsPreparingAssistant(false);
+    setIsSubmittingAnswer(false);
     setHasStartedSession(selectedMode !== 'job_posting');
     setShowEndSessionModal(false);
     recognitionRef.current?.abort();
     recognitionRef.current = null;
+  }, [selectedMode, assistantRestartKey]);
+
+  useEffect(() => {
+    const assistantSessionType = getAssistantSessionType(selectedMode);
+
+    if (!assistantSessionType) {
+      return;
+    }
+
+    const sessionType = assistantSessionType;
+    let isMounted = true;
+
+    async function prepareAssistantSession() {
+      try {
+        setIsPreparingAssistant(true);
+        setAssistantError('');
+        setAssistantMessage('Preparing personalized AI questions...');
+
+        const assistantSession = await createAssistantSession(sessionType);
+
+        if (!isMounted) return;
+
+        setAssistantSessionId(assistantSession.session_id);
+        setAssistantQuestions(assistantSession.session_plan.questions.map((question) => mapPlannedQuestion(question, selectedMode)));
+        setAssistantMessage('AI assistant ready. Your answers will receive evaluator feedback.');
+      } catch (error) {
+        if (isMounted) {
+          setAssistantSessionId(null);
+          setAssistantQuestions([]);
+          setAssistantMessage('');
+          setAssistantError(error instanceof Error ? error.message : 'AI assistant is unavailable. Using built-in practice questions.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsPreparingAssistant(false);
+        }
+      }
+    }
+
+    prepareAssistantSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedMode]);
 
   useEffect(() => {
@@ -272,17 +364,18 @@ export function PracticeSession() {
     };
   }, []);
 
-  const createSubmittedAnswer = (value: string): SubmittedAnswer => ({
+  const createSubmittedAnswer = (value: string, feedback?: Pick<SubmittedAnswer, 'aiFeedback' | 'score' | 'strengths' | 'improvements'>): SubmittedAnswer => ({
       questionId: currentQuestion.id,
       questionNumber,
       question: currentQuestion.question,
       answer: value.trim(),
       timeSpentSeconds: questionTimeSeconds,
       submittedAt: new Date().toISOString(),
+      ...feedback,
   });
 
-  const saveCurrentAnswer = (value: string) => {
-    const submittedAnswer = createSubmittedAnswer(value);
+  const saveCurrentAnswer = (value: string, feedback?: Pick<SubmittedAnswer, 'aiFeedback' | 'score' | 'strengths' | 'improvements'>) => {
+    const submittedAnswer = createSubmittedAnswer(value, feedback);
 
     setSubmittedAnswers((answers) => upsertSubmittedAnswer(answers, submittedAnswer));
 
@@ -318,6 +411,10 @@ export function PracticeSession() {
           userAnswer: item.answer,
           timeSpentSeconds: item.timeSpentSeconds,
           submittedAt: item.submittedAt,
+          aiFeedback: item.aiFeedback,
+          score: item.score,
+          strengths: item.strengths,
+          improvements: item.improvements,
         })),
       });
 
@@ -343,12 +440,31 @@ export function PracticeSession() {
     stopRecording();
   };
 
-  const handleSubmitAnswer = () => {
+  const handleSubmitAnswer = async () => {
     if (!isSubmitted) {
       if (!answer.trim()) return;
 
-      saveCurrentAnswer(answer);
-      setIsSubmitted(true);
+      try {
+        setIsSubmittingAnswer(true);
+        setAssistantError('');
+
+        let feedback: Pick<SubmittedAnswer, 'aiFeedback' | 'score' | 'strengths' | 'improvements'> | undefined;
+
+        if (assistantSessionId) {
+          const turn = await submitAssistantTurn(assistantSessionId, currentQuestionIndex, answer.trim());
+          feedback = getEvaluationFeedback(turn.evaluation);
+          setAssistantMessage(turn.response_text);
+        }
+
+        saveCurrentAnswer(answer, feedback);
+        setIsSubmitted(true);
+      } catch (error) {
+        setAssistantError(error instanceof Error ? error.message : 'AI evaluator was unavailable. Your answer was saved locally.');
+        saveCurrentAnswer(answer);
+        setIsSubmitted(true);
+      } finally {
+        setIsSubmittingAnswer(false);
+      }
       return;
     }
 
@@ -464,6 +580,13 @@ export function PracticeSession() {
     setIsComplete(false);
     setIsCompletingSession(false);
     setCompletionError('');
+    setAssistantSessionId(null);
+    setAssistantQuestions([]);
+    setAssistantMessage('');
+    setAssistantError('');
+    setIsPreparingAssistant(false);
+    setIsSubmittingAnswer(false);
+    setAssistantRestartKey((key) => key + 1);
     setHasStartedSession(selectedMode !== 'job_posting');
   };
 
@@ -760,6 +883,28 @@ export function PracticeSession() {
             </div>
           </header>
 
+          {assistantMessage || assistantError || isPreparingAssistant ? (
+            <Alert className={cn('flex gap-3 border-indigo-100 bg-indigo-50 text-indigo-900', assistantError && 'border-amber-200 bg-amber-50 text-amber-900')}>
+              <span
+                className={cn(
+                  'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700',
+                  assistantError && 'bg-amber-100 text-amber-700',
+                )}
+              >
+                {isPreparingAssistant ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : assistantError ? (
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                )}
+              </span>
+              <p className="text-sm font-bold leading-6">
+                {isPreparingAssistant ? 'Preparing personalized AI questions...' : assistantError || assistantMessage}
+              </p>
+            </Alert>
+          ) : null}
+
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section className="space-y-5">
               <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -776,6 +921,7 @@ export function PracticeSession() {
                 </div>
 
                 <p className="mt-6 text-xl font-extrabold leading-tight text-slate-950">{currentQuestion.question}</p>
+                {currentQuestion.intent ? <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{currentQuestion.intent}</p> : null}
               </article>
 
               <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -828,7 +974,7 @@ export function PracticeSession() {
                 <button
                   type="button"
                   onClick={handleSkipQuestion}
-                  disabled={isCompletingSession}
+                  disabled={isCompletingSession || isSubmittingAnswer || isPreparingAssistant}
                   className="inline-flex h-10 items-center gap-2 text-sm font-extrabold text-slate-500 transition hover:text-slate-950"
                 >
                   <SkipForward className="h-4 w-4" aria-hidden="true" />
@@ -841,8 +987,18 @@ export function PracticeSession() {
                   disabled={!canSubmit}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-7 text-sm font-extrabold text-white shadow-sm shadow-indigo-100 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300"
                 >
-                  {isCompletingSession ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                  {isCompletingSession ? 'Generating Feedback' : isSubmitted ? (isLastQuestion ? 'Finish Session' : 'Next Question') : 'Submit Answer'}
+                  {isCompletingSession || isSubmittingAnswer || isPreparingAssistant ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                  {isPreparingAssistant
+                    ? 'Preparing AI'
+                    : isSubmittingAnswer
+                      ? 'Evaluating Answer'
+                      : isCompletingSession
+                        ? 'Generating Feedback'
+                        : isSubmitted
+                          ? isLastQuestion
+                            ? 'Finish Session'
+                            : 'Next Question'
+                          : 'Submit Answer'}
                 </button>
               </div>
             </section>

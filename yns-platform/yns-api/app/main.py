@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.reports.router import router as reports_router
+from app.api.resume.router import router as resume_router
+from app.api.sessions.router import router as sessions_router
 from app.config import settings
+from app.middleware.error_handler import register_error_handlers
 from app.routers import (
     career_profiles,
     high_school_profiles,
@@ -23,6 +27,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+register_error_handlers(app)
 
 
 @app.exception_handler(SQLAlchemyError)
@@ -48,3 +54,7 @@ app.include_router(job_postings.router, prefix="/api")
 # The onboarding summary endpoint returns a single AI-ready context object for
 # the interview generator, so AI code does not need to query individual tables.
 app.include_router(onboarding_summary.router, prefix="/api")
+
+app.include_router(sessions_router, prefix="/api/sessions", tags=["sessions"])
+app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
+app.include_router(resume_router, prefix="/api/resume", tags=["resume"])

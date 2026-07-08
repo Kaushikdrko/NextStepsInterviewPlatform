@@ -1,7 +1,11 @@
 .DS_Store
 
+# docs / local notes
+/docs
 # dependencies
 node_modules
+yns-web/node_modules
+yns-api/.venv/
 
 # build output
 .next
@@ -11,9 +15,13 @@ coverage
 # env files
 .env
 .env.local
-.env.*.local
+.env*.local
 
 # python
 .venv
 __pycache__
 .pytest_cache
+
+.agents
+.claude
+docs/
