@@ -11,6 +11,8 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
+    supabase_url: str = os.getenv("SUPABASE_URL", "")
+    supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
     @property
     def cors_origins(self) -> list[str]:
