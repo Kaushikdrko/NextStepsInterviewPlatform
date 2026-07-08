@@ -44,6 +44,24 @@ export type SubmitAssistantTurnResponse = {
   session_complete: boolean;
 };
 
+export type CategoryScore = {
+  category: 'behavioral' | 'technical' | 'values';
+  score: number;
+  notes: string;
+};
+
+export type SessionReport = {
+  overall: number;
+  category_breakdown: CategoryScore[];
+  strengths: string[];
+  growth_areas: string[];
+  recommended_next_steps: string[];
+};
+
+export type GenerateReportResponse = {
+  report: SessionReport;
+};
+
 async function getAccessToken() {
   const supabase = createSupabaseBrowserClient();
   const {
@@ -114,5 +132,11 @@ export function submitAssistantTurn(sessionId: string, turnIndex: number, answer
   return assistantFetch<SubmitAssistantTurnResponse>(`/api/sessions/${sessionId}/turns`, {
     method: 'POST',
     body: JSON.stringify({ turn_index: turnIndex, answer_text: answerText }),
+  });
+}
+
+export function generateAssistantReport(sessionId: string) {
+  return assistantFetch<GenerateReportResponse>(`/api/reports/${sessionId}`, {
+    method: 'POST',
   });
 }

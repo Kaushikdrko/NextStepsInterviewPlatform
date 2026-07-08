@@ -6,11 +6,13 @@ import Link from 'next/link';
 import { AlertCircle, CalendarDays, ChevronRight, Loader2, LockKeyhole, RefreshCw } from 'lucide-react';
 
 import { Sidebar } from '@/components/dashboard/Sidebar';
+import { AssistantReportCard } from '@/components/practice/AssistantReportCard';
 import { FeedbackQuestionCard } from '@/components/practice/FeedbackQuestionCard';
 import { FeedbackSummaryCard } from '@/components/practice/FeedbackSummaryCard';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { generateAssistantReport, type SessionReport } from '@/lib/services/interview-assistant';
 import { getInterviewFeedbackSession, type InterviewFeedbackSession } from '@/lib/services/interview-feedback';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -85,6 +87,9 @@ function LoadingState() {
 export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps) {
   const [status, setStatus] = useState<PageStatus>('loading');
   const [feedback, setFeedback] = useState<InterviewFeedbackSession | null>(null);
+  const [assistantReport, setAssistantReport] = useState<SessionReport | null>(null);
+  const [reportStatus, setReportStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [reportMessage, setReportMessage] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -94,6 +99,8 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
       try {
         setStatus('loading');
         setMessage('');
+        setReportStatus('idle');
+        setReportMessage('');
 
         const supabase = createSupabaseBrowserClient();
         const {
@@ -125,6 +132,27 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
 
         setFeedback(savedFeedback);
         setStatus(savedFeedback.items.length > 0 ? 'ready' : 'empty');
+
+        if (savedFeedback.assistantSessionId && savedFeedback.items.length > 0) {
+          try {
+            setReportStatus('loading');
+            setReportMessage('Generating full AI report...');
+
+            const reportResponse = await generateAssistantReport(savedFeedback.assistantSessionId);
+
+            if (!isMounted) return;
+
+            setAssistantReport(reportResponse.report);
+            setReportStatus('ready');
+            setReportMessage('');
+          } catch (error) {
+            if (isMounted) {
+              setAssistantReport(null);
+              setReportStatus('error');
+              setReportMessage(error instanceof Error ? error.message : 'Unable to generate the full AI report.');
+            }
+          }
+        }
       } catch (error) {
         if (isMounted) {
           setStatus('error');
@@ -223,6 +251,26 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
           </header>
 
           <FeedbackSummaryCard feedback={feedback} />
+
+          {reportStatus === 'loading' ? (
+            <Card className="rounded-xl border-indigo-100 bg-indigo-50/60 shadow-sm">
+              <CardContent className="flex items-center gap-3 p-5 text-sm font-bold text-indigo-900">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                {reportMessage || 'Generating full AI report...'}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {reportStatus === 'error' ? (
+            <Card className="rounded-xl border-amber-200 bg-amber-50 shadow-sm">
+              <CardContent className="flex items-start gap-3 p-5 text-sm font-bold leading-6 text-amber-900">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>Full AI report unavailable: {reportMessage}</p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {assistantReport ? <AssistantReportCard report={assistantReport} /> : null}
 
           <section className="space-y-4">
             <div>

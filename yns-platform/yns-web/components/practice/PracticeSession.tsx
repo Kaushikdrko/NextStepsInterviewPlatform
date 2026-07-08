@@ -400,6 +400,7 @@ export function PracticeSession() {
 
       const feedbackSession = createInterviewFeedbackSession({
         userId: user.id,
+        assistantSessionId,
         mode: selectedMode,
         title,
         totalQuestions: questions.length,

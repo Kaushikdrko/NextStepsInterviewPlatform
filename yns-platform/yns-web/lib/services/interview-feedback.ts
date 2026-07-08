@@ -26,6 +26,7 @@ export type InterviewFeedbackItem = {
 
 export type InterviewFeedbackSession = {
   sessionId: string;
+  assistantSessionId?: string;
   userId: string;
   mode: PracticeMode;
   title: string;
@@ -41,6 +42,7 @@ export type InterviewFeedbackSession = {
 
 type CreateInterviewFeedbackSessionInput = {
   userId: string;
+  assistantSessionId?: string | null;
   mode: PracticeMode;
   title: string;
   totalQuestions: number;
@@ -166,6 +168,7 @@ export function createInterviewFeedbackSession(input: CreateInterviewFeedbackSes
 
   return {
     sessionId: createSessionId(),
+    assistantSessionId: input.assistantSessionId ?? undefined,
     userId: input.userId,
     mode: input.mode,
     title: input.title,
