@@ -476,10 +476,18 @@ export function PracticeSession() {
     goToNextQuestion();
   };
 
-  const handleSkipQuestion = () => {
+  const handleSkipQuestion = async () => {
     let nextAnswers = submittedAnswers;
 
     if (!isSubmitted) {
+      if (assistantSessionId) {
+        try {
+          await submitAssistantTurn(assistantSessionId, currentQuestionIndex, '');
+        } catch (error) {
+          setAssistantError(error instanceof Error ? error.message : 'AI evaluator was unavailable. Your answer was saved locally.');
+        }
+      }
+
       const submittedAnswer = saveCurrentAnswer('');
       nextAnswers = upsertSubmittedAnswer(submittedAnswers, submittedAnswer);
     }

@@ -93,6 +93,20 @@ def write_turn(turn_data: dict[str, Any]) -> dict[str, Any]:
     return result.data[0]
 
 
+def get_sessions_for_user(user_id: str, limit: int = 5) -> list[dict[str, Any]]:
+    client = get_supabase_client()
+    result = (
+        client.table("interview_sessions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("status", "completed")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
 def get_session_with_plan(session_id: str) -> dict[str, Any] | None:
     client = get_supabase_client()
     result = client.table("interview_sessions").select("*").eq("id", session_id).execute()

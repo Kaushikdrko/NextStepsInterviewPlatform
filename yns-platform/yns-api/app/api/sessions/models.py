@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 from app.core.schemas.evaluation import TurnEvaluation
@@ -24,3 +26,34 @@ class TurnResponse(BaseModel):
     next_question: PlannedQuestion | None
     evaluation: TurnEvaluation
     session_complete: bool
+
+
+class SessionSummary(BaseModel):
+    session_id: str
+    session_type: str
+    status: str
+    created_at: datetime
+    completed_at: datetime | None
+    question_count: int
+    answered_count: int
+    average_rating: float | None
+
+
+class SessionListResponse(BaseModel):
+    sessions: list[SessionSummary]
+
+
+class SessionTurnDetail(BaseModel):
+    turn_index: int
+    question: PlannedQuestion
+    answer_text: str
+    evaluation: TurnEvaluation | None
+
+
+class SessionDetailResponse(BaseModel):
+    session_id: str
+    session_type: str
+    status: str
+    created_at: datetime
+    completed_at: datetime | None
+    turns: list[SessionTurnDetail]
