@@ -1,5 +1,6 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { hasValidResumeFile } from '@/lib/validations/onboarding';
+import { API_BASE_URL } from '@/lib/utils/api-client';
 
 type UploadResumeResult = {
   success: boolean;
@@ -71,6 +72,21 @@ export async function uploadResume(file: File): Promise<UploadResumeResult> {
 
     if (!savedResume?.id) {
       return { success: false, error: 'Saving resume metadata failed: resumes was not updated.' };
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/resume/parse`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+      } catch {
+        // Resume parsing is best-effort; the upload should still succeed if it fails.
+      }
     }
 
     return { success: true, fileName: file.name };

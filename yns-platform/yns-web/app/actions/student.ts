@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { API_BASE_URL } from "@/lib/utils/api-client";
 import type { FinalOnboardingPayload, UserType } from "@/types/onboarding";
 
 type SubmitOnboardingResult = {
@@ -36,8 +37,20 @@ function formatSupabaseError(action: string, message: string) {
   return `${action}: ${message}`;
 }
 
-export async function submitOnboarding(data: FinalOnboardingPayload): Promise<SubmitOnboardingResult> {
+export async function submitOnboarding(formData: FormData): Promise<SubmitOnboardingResult> {
   try {
+    const payloadRaw = formData.get("payload");
+    if (typeof payloadRaw !== "string") {
+      return { success: false, error: "Missing onboarding payload." };
+    }
+
+    const data: Omit<FinalOnboardingPayload, "career_profile" | "high_school_profile"> & {
+      career_profile?: Omit<NonNullable<FinalOnboardingPayload["career_profile"]>, "resume_file">;
+      high_school_profile?: Omit<NonNullable<FinalOnboardingPayload["high_school_profile"]>, "resume_file">;
+    } = JSON.parse(payloadRaw);
+    const resumeFileFromForm = formData.get("resume_file");
+    const resumeFile = resumeFileFromForm instanceof File ? resumeFileFromForm : null;
+
     const supabase = createSupabaseServerClient();
     const {
       data: { user },
@@ -56,7 +69,6 @@ export async function submitOnboarding(data: FinalOnboardingPayload): Promise<Su
     const careerProfile = data.career_profile;
     const highSchoolProfile = data.high_school_profile;
     const databaseUserType = toDatabaseUserType(data.user_type);
-    const resumeFile = careerProfile?.resume_file ?? highSchoolProfile?.resume_file ?? null;
 
     const {
       data: savedAppUser,
@@ -194,6 +206,21 @@ export async function submitOnboarding(data: FinalOnboardingPayload): Promise<Su
 
       if (!savedResume?.id) {
         return { success: false, error: "Saving resume metadata failed: resumes was not updated." };
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.access_token) {
+        try {
+          await fetch(`${API_BASE_URL}/api/resume/parse`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+        } catch {
+          // Resume parsing is best-effort; onboarding should still succeed if it fails.
+        }
       }
     }
 

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr
@@ -26,6 +27,8 @@ class HighSchoolProfileSummary(BaseModel):
 
 
 class ResumeSummary(BaseModel):
+    id: str
+    created_at: datetime
     file_name: str | None = None
     storage_path: str | None = None
     extracted_text: str | None = None

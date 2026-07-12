@@ -1,7 +1,6 @@
 .DS_Store
 
 # docs / local notes
-/docs
 # dependencies
 node_modules
 yns-web/node_modules
@@ -11,6 +10,7 @@ yns-api/.venv/
 .next
 dist
 coverage
+*.tsbuildinfo
 
 # env files
 .env
@@ -22,6 +22,8 @@ coverage
 __pycache__
 .pytest_cache
 
-.agents
 .claude
-docs/
+.agents
+docs/agentProgress.md
+docs/claude.md
+

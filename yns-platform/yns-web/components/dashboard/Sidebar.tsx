@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', activePath: '/dashboard', icon: LayoutDashboard },
   { label: 'Practice', href: '/practice', activePath: '/practice', icon: Mic },
-  { label: 'Profile', href: '/dashboard', activePath: '/profile', icon: User },
-  { label: 'Resume', href: '/dashboard', activePath: '/resume', icon: FileText },
+  { label: 'Profile', href: '/profile', activePath: '/profile', icon: User },
+  { label: 'Resume', href: '/profile', activePath: '/profile', icon: FileText },
   { label: 'Settings', href: '/dashboard', activePath: '/settings', icon: Settings },
 ];
 

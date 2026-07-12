@@ -68,6 +68,8 @@ def get_onboarding_summary(db: Session, user_id: str) -> OnboardingSummaryRespon
 
     resume_summary = (
         ResumeSummary(
+            id=resume.id,
+            created_at=resume.created_at,
             file_name=resume.file_name,
             storage_path=resume.storage_path,
             extracted_text=resume.extracted_text,

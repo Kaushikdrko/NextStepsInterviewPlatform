@@ -138,11 +138,11 @@ def update_session_status(session_id: str, status: str) -> None:
     client.table("interview_sessions").update(update_data).eq("id", session_id).execute()
 
 
-def download_resume_bytes(user_id: str) -> bytes:
+def download_resume_bytes(user_id: str) -> tuple[str, bytes]:
     client = get_supabase_client()
     result = (
         client.table("resumes")
-        .select("storage_path")
+        .select("id, storage_path")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .limit(1)
@@ -151,12 +151,13 @@ def download_resume_bytes(user_id: str) -> bytes:
     if not result.data:
         raise ValueError(f"No resume found for user {user_id}")
 
+    resume_id = result.data[0]["id"]
     storage_path = result.data[0]["storage_path"]
-    return client.storage.from_("resumes").download(storage_path)
+    return resume_id, client.storage.from_("resumes").download(storage_path)
 
 
-def write_resume_extracted_text(user_id: str, extracted_text: str) -> None:
+def write_resume_extracted_text(resume_id: str, extracted_text: str) -> None:
     client = get_supabase_client()
     client.table("resumes").update({"extracted_text": extracted_text}).eq(
-        "user_id", user_id
+        "id", resume_id
     ).execute()
