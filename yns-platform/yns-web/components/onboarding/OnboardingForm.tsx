@@ -320,7 +320,24 @@ export function OnboardingForm() {
     setSubmitError(null);
     setIsSubmitting(true);
 
-    const result = await submitOnboarding(finalObject);
+    const resumeFile = finalObject.career_profile?.resume_file ?? finalObject.high_school_profile?.resume_file ?? null;
+    const payload = {
+      ...finalObject,
+      career_profile: finalObject.career_profile
+        ? { ...finalObject.career_profile, resume_file: undefined }
+        : undefined,
+      high_school_profile: finalObject.high_school_profile
+        ? { ...finalObject.high_school_profile, resume_file: undefined }
+        : undefined,
+    };
+
+    const formData = new FormData();
+    formData.set('payload', JSON.stringify(payload));
+    if (resumeFile) {
+      formData.set('resume_file', resumeFile);
+    }
+
+    const result = await submitOnboarding(formData);
 
     setIsSubmitting(false);
 

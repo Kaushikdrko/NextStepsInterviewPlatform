@@ -1,6 +1,4 @@
-import { NextStep } from '@/components/dashboard/NextStep';
 import { PracticeProgressGraph } from '@/components/dashboard/PracticeProgressGraph';
-import { ProfileSummaryCard } from '@/components/dashboard/ProfileSummaryCard';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { StatsSection } from '@/components/dashboard/StatsSection';
 import { WelcomeSection } from '@/components/dashboard/WelcomeSection';
@@ -14,16 +12,7 @@ export default function DashboardPage() {
         <div className="mx-auto w-full max-w-6xl space-y-5 lg:px-6">
           <WelcomeSection />
           <StatsSection />
-
-          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="space-y-5">
-              <PracticeProgressGraph />
-              <ProfileSummaryCard />
-            </section>
-            <aside className="space-y-5">
-              <NextStep />
-            </aside>
-          </div>
+          <PracticeProgressGraph />
         </div>
       </div>
     </main>

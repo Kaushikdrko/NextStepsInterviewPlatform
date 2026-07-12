@@ -5,6 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.sessions.models import (
     CreateSessionRequest,
     CreateSessionResponse,
+    SessionDetailResponse,
+    SessionListResponse,
+    SessionSummary,
+    SessionTurnDetail,
     SubmitTurnRequest,
     TurnResponse,
 )
@@ -17,7 +21,9 @@ from app.services.supabase_client import (
     build_student_profile,
     get_last_n_turns,
     get_session_with_plan,
+    get_sessions_for_user,
     get_student_profile,
+    get_turns_for_session,
     update_session_status,
     write_session,
     write_turn,
@@ -40,6 +46,57 @@ def _get_owned_session(session_id: str, user_id: str) -> dict:
     if session["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to access this session")
     return session
+
+
+@router.get("/", response_model=SessionListResponse)
+def list_sessions(user_id: str = Depends(get_current_student)):
+    sessions = get_sessions_for_user(user_id, limit=5)
+
+    summaries = []
+    for session in sessions:
+        turns = get_turns_for_session(session["id"])
+        ratings = [t["evaluation"]["overall"] for t in turns if t.get("evaluation")]
+
+        summaries.append(
+            SessionSummary(
+                session_id=session["id"],
+                session_type=session["session_type"],
+                status=session["status"],
+                created_at=session["created_at"],
+                completed_at=session.get("completed_at"),
+                question_count=len(session["session_plan"]["questions"]),
+                answered_count=len(turns),
+                average_rating=(sum(ratings) / len(ratings)) if ratings else None,
+            )
+        )
+
+    return SessionListResponse(sessions=summaries)
+
+
+@router.get("/{session_id}", response_model=SessionDetailResponse)
+def get_session_detail(
+    session_id: str,
+    user_id: str = Depends(get_current_student),
+):
+    session = _get_owned_session(session_id, user_id)
+    turns = get_turns_for_session(session_id)
+
+    return SessionDetailResponse(
+        session_id=session["id"],
+        session_type=session["session_type"],
+        status=session["status"],
+        created_at=session["created_at"],
+        completed_at=session.get("completed_at"),
+        turns=[
+            SessionTurnDetail(
+                turn_index=t["turn_index"],
+                question=PlannedQuestion(**t["question"]),
+                answer_text=t["answer_text"] or "",
+                evaluation=t["evaluation"],
+            )
+            for t in turns
+        ],
+    )
 
 
 @router.post("/", response_model=CreateSessionResponse)

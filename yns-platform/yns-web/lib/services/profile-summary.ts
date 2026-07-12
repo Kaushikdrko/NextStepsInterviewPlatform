@@ -21,7 +21,9 @@ type HighSchoolProfileSummary = {
   interview_type?: string | null;
 };
 
-type ResumeSummary = {
+export type ResumeSummary = {
+  id: string;
+  created_at: string;
   file_name?: string | null;
   storage_path?: string | null;
   extracted_text?: string | null;

@@ -62,6 +62,37 @@ export type GenerateReportResponse = {
   report: SessionReport;
 };
 
+export type SessionSummary = {
+  session_id: string;
+  session_type: string;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  question_count: number;
+  answered_count: number;
+  average_rating: number | null;
+};
+
+export type SessionListResponse = {
+  sessions: SessionSummary[];
+};
+
+export type SessionTurnDetail = {
+  turn_index: number;
+  question: PlannedQuestion;
+  answer_text: string;
+  evaluation: TurnEvaluation | null;
+};
+
+export type SessionDetailResponse = {
+  session_id: string;
+  session_type: string;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  turns: SessionTurnDetail[];
+};
+
 async function getAccessToken() {
   const supabase = createSupabaseBrowserClient();
   const {
@@ -141,4 +172,12 @@ export function generateAssistantReport(sessionId: string) {
   return assistantFetch<GenerateReportResponse>(`/api/reports/${sessionId}`, {
     method: 'POST',
   });
+}
+
+export function getSessionHistory() {
+  return assistantFetch<SessionListResponse>('/api/sessions/');
+}
+
+export function getSessionDetail(sessionId: string) {
+  return assistantFetch<SessionDetailResponse>(`/api/sessions/${sessionId}`);
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BrainCircuit, FileText, LayoutDashboard, LogOut, Mic, Settings, User } from 'lucide-react';
+import { BrainCircuit, FileText, History, LayoutDashboard, LogOut, Mic, Settings, User } from 'lucide-react';
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -10,8 +10,9 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', activePath: '/dashboard', icon: LayoutDashboard },
   { label: 'Practice', href: '/practice', activePath: '/practice', icon: Mic },
-  { label: 'Profile', href: '/dashboard', activePath: '/profile', icon: User },
-  { label: 'Resume', href: '/dashboard', activePath: '/resume', icon: FileText },
+  { label: 'History', href: '/history', activePath: '/history', icon: History },
+  { label: 'Profile', href: '/profile', activePath: '/profile', icon: User },
+  { label: 'Resume', href: '/profile', activePath: '/profile', icon: FileText },
   { label: 'Settings', href: '/dashboard', activePath: '/settings', icon: Settings },
 ];
 
