@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, LockKeyhole, LogIn, UserPlus } from 'lucide-react';
+import { Mail, LockKeyhole, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,10 +37,13 @@ export function AuthFormCard({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [pendingOtpEmail, setPendingOtpEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const Icon = mode === 'sign-in' ? LogIn : UserPlus;
+  const isOtpStep = mode === 'sign-up' && Boolean(pendingOtpEmail);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -61,13 +64,46 @@ export function AuthFormCard({
       const supabase = createSupabaseBrowserClient();
 
       if (mode === 'sign-up') {
+        if (isOtpStep) {
+          const cleanedCode = otpCode.trim();
+
+          if (!cleanedCode) {
+            setError('Enter the verification code from your email.');
+            return;
+          }
+
+          const { data, error: otpError } = await supabase.auth.verifyOtp({
+            email: pendingOtpEmail,
+            token: cleanedCode,
+            type: 'email',
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback`,
+            },
+          });
+
+          if (otpError) {
+            setError(otpError.message);
+            return;
+          }
+
+          if (!data.session || !data.user) {
+            setError('Unable to verify your account. Please request a new code and try again.');
+            return;
+          }
+
+          persistSessionForServer(data.session);
+          router.push('/onboarding');
+          return;
+        }
+
         if (password !== confirmPassword) {
           setError('Passwords do not match.');
           return;
         }
 
+        const normalizedEmail = email.trim().toLowerCase();
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -80,12 +116,12 @@ export function AuthFormCard({
         }
 
         if (data.session) {
-          persistSessionForServer(data.session);
-          router.push('/onboarding');
-          return;
+          await supabase.auth.signOut();
         }
 
-        setMessage('Check your email to confirm your account.');
+        setPendingOtpEmail(normalizedEmail);
+        setOtpCode('');
+        setMessage(`We sent a verification code to ${normalizedEmail}. Enter it to finish creating your account.`);
         return;
       }
 
@@ -118,6 +154,43 @@ export function AuthFormCard({
     }
   };
 
+  const handleResendCode = async () => {
+    if (!pendingOtpEmail) {
+      return;
+    }
+
+    setError(null);
+    setMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingOtpEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (resendError) {
+        setError(resendError.message);
+        return;
+      }
+
+      setMessage(`We sent a new verification code to ${pendingOtpEmail}.`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUseDifferentEmail = () => {
+    setPendingOtpEmail('');
+    setOtpCode('');
+    setError(null);
+    setMessage(null);
+  };
+
   return (
     <div className="w-full max-w-lg space-y-6">
       <div className="space-y-4">
@@ -136,75 +209,125 @@ export function AuthFormCard({
           {error ? <Alert className="border-rose-200 bg-rose-50 text-rose-700">{error}</Alert> : null}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <AuthField label="Email" icon={<Mail className="h-5 w-5" aria-hidden="true" />}>
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                autoComplete="email"
-                className="h-12 rounded-xl pl-12 text-base"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
-            </AuthField>
+            {isOtpStep ? (
+              <>
+                <AuthField label="Email" icon={<Mail className="h-5 w-5" aria-hidden="true" />}>
+                  <Input
+                    type="email"
+                    className="h-12 rounded-xl pl-12 text-base"
+                    value={pendingOtpEmail}
+                    readOnly
+                    required
+                  />
+                </AuthField>
 
-            <AuthField
-              label="Password"
-              icon={<LockKeyhole className="h-5 w-5" aria-hidden="true" />}
-              action={
-                mode === 'sign-in' ? (
-                  <button type="button" className="text-sm font-bold text-indigo-600 hover:text-indigo-700">
-                    Forgot password?
+                <AuthField label="Verification code" icon={<ShieldCheck className="h-5 w-5" aria-hidden="true" />}>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="Enter your code"
+                    className="h-12 rounded-xl pl-12 text-base"
+                    value={otpCode}
+                    onChange={(event) => setOtpCode(event.target.value)}
+                    required
+                  />
+                </AuthField>
+
+                <div className="flex flex-col gap-3 text-sm font-bold sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="button"
+                    className="text-left text-indigo-600 hover:text-indigo-700"
+                    onClick={handleResendCode}
+                    disabled={isSubmitting}
+                  >
+                    Resend code
                   </button>
-                ) : null
-              }
-            >
-              <Input
-                type="password"
-                placeholder="••••••••"
-                autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
-                className="h-12 rounded-xl pl-12 text-base"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                minLength={6}
-              />
-            </AuthField>
+                  <button
+                    type="button"
+                    className="text-left text-slate-500 hover:text-slate-700 sm:text-right"
+                    onClick={handleUseDifferentEmail}
+                    disabled={isSubmitting}
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <AuthField label="Email" icon={<Mail className="h-5 w-5" aria-hidden="true" />}>
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    className="h-12 rounded-xl pl-12 text-base"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    required
+                  />
+                </AuthField>
 
-            {mode === 'sign-up' ? (
-              <AuthField label="Confirm Password" icon={<LockKeyhole className="h-5 w-5" aria-hidden="true" />}>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  className="h-12 rounded-xl pl-12 text-base"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  required
-                  minLength={6}
-                />
-              </AuthField>
-            ) : null}
+                <AuthField
+                  label="Password"
+                  icon={<LockKeyhole className="h-5 w-5" aria-hidden="true" />}
+                  action={
+                    mode === 'sign-in' ? (
+                      <button type="button" className="text-sm font-bold text-indigo-600 hover:text-indigo-700">
+                        Forgot password?
+                      </button>
+                    ) : null
+                  }
+                >
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
+                    className="h-12 rounded-xl pl-12 text-base"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </AuthField>
 
-            {children}
+                {mode === 'sign-up' ? (
+                  <AuthField label="Confirm Password" icon={<LockKeyhole className="h-5 w-5" aria-hidden="true" />}>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className="h-12 rounded-xl pl-12 text-base"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </AuthField>
+                ) : null}
+              </>
+            )}
+
+            {!isOtpStep ? children : null}
 
             <Button
               type="submit"
               disabled={isSubmitting}
               className="h-12 w-full rounded-xl bg-indigo-700 text-sm font-bold text-white shadow-sm hover:bg-indigo-800"
             >
-              {isSubmitting ? 'Please wait...' : submitLabel}
+              {isSubmitting ? 'Please wait...' : isOtpStep ? 'Verify code' : submitLabel}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      <p className="text-center text-base font-semibold text-slate-500">
-        {footerText}{' '}
-        <Link href={footerHref} className="font-bold text-indigo-700 hover:text-indigo-800">
-          {footerLinkText}
-        </Link>
-      </p>
+      {!isOtpStep ? (
+        <p className="text-center text-base font-semibold text-slate-500">
+          {footerText}{' '}
+          <Link href={footerHref} className="font-bold text-indigo-700 hover:text-indigo-800">
+            {footerLinkText}
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }

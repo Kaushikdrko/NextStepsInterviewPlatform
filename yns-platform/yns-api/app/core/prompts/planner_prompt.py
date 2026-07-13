@@ -73,6 +73,16 @@ def build_planner_prompt(
     interests_text = ", ".join(interests) if interests else "not specified"
     goals_text = ", ".join(goals) if goals else "not specified"
     resume_text = resume_summary or "No resume on file yet."
+    resume_instruction = (
+        "\nResume session requirement: this is a resume-based interview. "
+        "Prioritize questions that reference specific resume projects, roles, "
+        "skills, education, or experience from the resume summary. If the "
+        "resume summary is missing, ask the student to identify the resume "
+        "project, role, or experience they want to discuss, then probe for "
+        "ownership, technical depth, impact, and lessons learned.\n"
+        if session_type == "resume"
+        else ""
+    )
 
     return f"""Design a {n_questions}-question {session_type} interview \
 session for this student.
@@ -83,5 +93,6 @@ Target industry: {target_industry or "not specified"}
 Interests: {interests_text}
 Goals: {goals_text}
 Resume summary: {resume_text}
+{resume_instruction}
 
 Call submit_session_plan with the full session plan."""

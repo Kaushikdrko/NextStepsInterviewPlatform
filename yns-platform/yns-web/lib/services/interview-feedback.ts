@@ -228,7 +228,7 @@ export function getInterviewFeedbackSession(sessionId: string): InterviewFeedbac
   }
 }
 
-export function getInterviewFeedbackSessions(): InterviewFeedbackSession[] {
+export function getInterviewFeedbackSessions(userId?: string): InterviewFeedbackSession[] {
   if (typeof window === 'undefined') return [];
 
   const rawIndex = window.localStorage.getItem(STORAGE_INDEX_KEY);
@@ -243,6 +243,7 @@ export function getInterviewFeedbackSessions(): InterviewFeedbackSession[] {
   return index
     .map((sessionId) => getInterviewFeedbackSession(sessionId))
     .filter((session): session is InterviewFeedbackSession => Boolean(session))
+    .filter((session) => !userId || session.userId === userId)
     .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
 }
 
@@ -281,8 +282,8 @@ function getPracticeStreakDays(sessions: InterviewFeedbackSession[]) {
   return streakDays;
 }
 
-export function getInterviewDashboardStats(): InterviewDashboardStats {
-  const sessions = getInterviewFeedbackSessions();
+export function getInterviewDashboardStats(userId: string): InterviewDashboardStats {
+  const sessions = getInterviewFeedbackSessions(userId);
   const scoredItems = sessions.flatMap((session) => session.items).filter((item) => typeof item.score === 'number' && item.userAnswer.trim().length > 0);
   const averageFeedbackScore =
     scoredItems.length > 0
@@ -297,7 +298,7 @@ export function getInterviewDashboardStats(): InterviewDashboardStats {
   };
 }
 
-export function getWeeklyPracticeProgress(): WeeklyPracticeProgressItem[] {
+export function getWeeklyPracticeProgress(userId: string): WeeklyPracticeProgressItem[] {
   const days: WeeklyPracticeProgressItem[] = [
     { day: 'Mon', questions: 0 },
     { day: 'Tue', questions: 0 },
@@ -317,7 +318,7 @@ export function getWeeklyPracticeProgress(): WeeklyPracticeProgressItem[] {
   const sunday = addDays(monday, 6);
   sunday.setHours(23, 59, 59, 999);
 
-  for (const session of getInterviewFeedbackSessions()) {
+  for (const session of getInterviewFeedbackSessions(userId)) {
     const completedAt = new Date(session.completedAt);
     if (completedAt < monday || completedAt > sunday) continue;
 

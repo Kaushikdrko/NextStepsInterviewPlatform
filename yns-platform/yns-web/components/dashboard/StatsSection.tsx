@@ -8,6 +8,7 @@ import {
   INTERVIEW_FEEDBACK_UPDATED_EVENT,
   type InterviewDashboardStats,
 } from '@/lib/services/interview-feedback';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 const emptyStats: InterviewDashboardStats = {
   interviewsCompleted: 0,
@@ -23,22 +24,40 @@ export function StatsSection() {
   const [dashboardStats, setDashboardStats] = useState<InterviewDashboardStats>(emptyStats);
 
   useEffect(() => {
-    function refreshStats() {
-      setDashboardStats(getInterviewDashboardStats());
+    let isMounted = true;
+    const supabase = createSupabaseBrowserClient();
+
+    async function refreshStats() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      setDashboardStats(user?.id ? getInterviewDashboardStats(user.id) : emptyStats);
     }
 
-    refreshStats();
+    void refreshStats();
 
-    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshStats);
-    window.addEventListener('storage', refreshStats);
-    window.addEventListener('focus', refreshStats);
-    document.addEventListener('visibilitychange', refreshStats);
+    const handleRefresh = () => void refreshStats();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void refreshStats();
+    });
+
+    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
+    window.addEventListener('storage', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+    document.addEventListener('visibilitychange', handleRefresh);
 
     return () => {
-      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshStats);
-      window.removeEventListener('storage', refreshStats);
-      window.removeEventListener('focus', refreshStats);
-      document.removeEventListener('visibilitychange', refreshStats);
+      isMounted = false;
+      subscription.unsubscribe();
+      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
+      window.removeEventListener('storage', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+      document.removeEventListener('visibilitychange', handleRefresh);
     };
   }, []);
 

@@ -11,7 +11,7 @@ SUBMIT_SESSION_PLAN_TOOL = {
         "properties": {
             "session_type": {
                 "type": "string",
-                "enum": ["behavioral", "technical", "mixed"],
+                "enum": ["behavioral", "technical", "mixed", "resume"],
             },
             "questions": {
                 "type": "array",

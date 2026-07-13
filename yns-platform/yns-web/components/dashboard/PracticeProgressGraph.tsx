@@ -8,6 +8,7 @@ import {
   INTERVIEW_FEEDBACK_UPDATED_EVENT,
   type WeeklyPracticeProgressItem,
 } from '@/lib/services/interview-feedback';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 const emptyWeeklyProgress: WeeklyPracticeProgressItem[] = [
   { day: 'Mon', questions: 0 },
@@ -36,22 +37,40 @@ export function PracticeProgressGraph() {
   const [weeklyProgress, setWeeklyProgress] = useState<WeeklyPracticeProgressItem[]>(emptyWeeklyProgress);
 
   useEffect(() => {
-    function refreshProgress() {
-      setWeeklyProgress(getWeeklyPracticeProgress());
+    let isMounted = true;
+    const supabase = createSupabaseBrowserClient();
+
+    async function refreshProgress() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      setWeeklyProgress(user?.id ? getWeeklyPracticeProgress(user.id) : emptyWeeklyProgress);
     }
 
-    refreshProgress();
+    void refreshProgress();
 
-    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshProgress);
-    window.addEventListener('storage', refreshProgress);
-    window.addEventListener('focus', refreshProgress);
-    document.addEventListener('visibilitychange', refreshProgress);
+    const handleRefresh = () => void refreshProgress();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void refreshProgress();
+    });
+
+    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
+    window.addEventListener('storage', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+    document.addEventListener('visibilitychange', handleRefresh);
 
     return () => {
-      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, refreshProgress);
-      window.removeEventListener('storage', refreshProgress);
-      window.removeEventListener('focus', refreshProgress);
-      document.removeEventListener('visibilitychange', refreshProgress);
+      isMounted = false;
+      subscription.unsubscribe();
+      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
+      window.removeEventListener('storage', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+      document.removeEventListener('visibilitychange', handleRefresh);
     };
   }, []);
 

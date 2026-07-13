@@ -7,22 +7,27 @@ import { uploadResume } from '@/lib/services/resumes';
 
 export function NextStep() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'analyzing'>('idle');
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const isUploading = uploadStatus !== 'idle';
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    setIsUploading(true);
+    setUploadStatus('uploading');
     setUploadError(null);
+    setUploadMessage(null);
     setUploadedFileName(null);
 
-    const result = await uploadResume(file);
+    const result = await uploadResume(file, {
+      onStatusChange: (status) => setUploadStatus(status),
+    });
 
-    setIsUploading(false);
+    setUploadStatus('idle');
     event.target.value = '';
 
     if (!result.success) {
@@ -31,6 +36,7 @@ export function NextStep() {
     }
 
     setUploadedFileName(result.fileName ?? file.name);
+    setUploadMessage(result.parseWarning ?? (result.parseStatus === 'parsed' ? 'Resume uploaded and analyzed.' : 'Resume uploaded.'));
     window.dispatchEvent(new Event('resume-uploaded'));
   };
 
@@ -60,7 +66,7 @@ export function NextStep() {
             onClick={() => inputRef.current?.click()}
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isUploading ? 'Uploading...' : 'Upload Resume'}
+            {uploadStatus === 'uploading' ? 'Uploading...' : uploadStatus === 'analyzing' ? 'Analyzing resume...' : 'Upload Resume'}
             {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}
           </button>
           {uploadedFileName ? (
@@ -69,6 +75,7 @@ export function NextStep() {
               Uploaded {uploadedFileName}
             </p>
           ) : null}
+          {uploadMessage ? <p className="text-xs font-bold leading-5 text-slate-600">{uploadMessage}</p> : null}
           {uploadError ? <p className="text-xs font-bold leading-5 text-rose-600">{uploadError}</p> : null}
         </div>
       </div>

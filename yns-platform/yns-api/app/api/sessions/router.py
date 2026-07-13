@@ -32,6 +32,12 @@ from app.services.supabase_client import (
 router = APIRouter()
 
 
+def _storage_session_type(session_type: str) -> str:
+    # The live database check constraint predates resume-specific sessions.
+    # Keep the persisted column compatible while session_plan keeps "resume".
+    return "mixed" if session_type == "resume" else session_type
+
+
 def _load_profile(user_id: str):
     raw = get_student_profile(user_id)
     if raw is None:
@@ -110,7 +116,7 @@ def create_session(
     row = write_session(
         {
             "user_id": user_id,
-            "session_type": body.session_type,
+            "session_type": _storage_session_type(body.session_type),
             "status": "in_progress",
             "session_plan": plan.model_dump(),
         }

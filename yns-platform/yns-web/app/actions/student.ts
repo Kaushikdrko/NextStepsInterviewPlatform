@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { API_BASE_URL } from "@/lib/utils/api-client";
-import type { FinalOnboardingPayload, UserType } from "@/types/onboarding";
+import type { FinalOnboardingPayload, OnboardingSubmission, UserType } from "@/types/onboarding";
 
 type SubmitOnboardingResult = {
   success: boolean;
@@ -37,25 +37,74 @@ function formatSupabaseError(action: string, message: string) {
   return `${action}: ${message}`;
 }
 
+function shouldParseResumeFile(file: File) {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
+
+async function parseUploadedResumeIfPossible(file: File, accessToken?: string) {
+  if (!shouldParseResumeFile(file) || !accessToken) return;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/resume/parse`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`Resume parsing failed: ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("Resume parsing failed:", error);
+  }
+}
+
+function parseOnboardingFormData(formData: FormData): FinalOnboardingPayload {
+  const rawPayload = formData.get("payload");
+
+  if (typeof rawPayload !== "string") {
+    throw new Error("Onboarding payload is missing.");
+  }
+
+  const parsedPayload = JSON.parse(rawPayload) as OnboardingSubmission;
+  const resumeEntry = formData.get("resume_file");
+  const resumeFile = resumeEntry instanceof File && resumeEntry.size > 0 ? resumeEntry : null;
+
+  if (parsedPayload.career_profile) {
+    return {
+      ...parsedPayload,
+      career_profile: {
+        ...parsedPayload.career_profile,
+        resume_file: resumeFile,
+      },
+    };
+  }
+
+  if (parsedPayload.high_school_profile) {
+    return {
+      ...parsedPayload,
+      high_school_profile: {
+        ...parsedPayload.high_school_profile,
+        resume_file: resumeFile,
+      },
+    };
+  }
+
+  return parsedPayload;
+}
+
 export async function submitOnboarding(formData: FormData): Promise<SubmitOnboardingResult> {
   try {
-    const payloadRaw = formData.get("payload");
-    if (typeof payloadRaw !== "string") {
-      return { success: false, error: "Missing onboarding payload." };
-    }
-
-    const data: Omit<FinalOnboardingPayload, "career_profile" | "high_school_profile"> & {
-      career_profile?: Omit<NonNullable<FinalOnboardingPayload["career_profile"]>, "resume_file">;
-      high_school_profile?: Omit<NonNullable<FinalOnboardingPayload["high_school_profile"]>, "resume_file">;
-    } = JSON.parse(payloadRaw);
-    const resumeFileFromForm = formData.get("resume_file");
-    const resumeFile = resumeFileFromForm instanceof File ? resumeFileFromForm : null;
-
+    const data = parseOnboardingFormData(formData);
     const supabase = createSupabaseServerClient();
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (userError && userError.name !== "AuthSessionMissingError") {
       return { success: false, error: userError.message };
@@ -69,6 +118,7 @@ export async function submitOnboarding(formData: FormData): Promise<SubmitOnboar
     const careerProfile = data.career_profile;
     const highSchoolProfile = data.high_school_profile;
     const databaseUserType = toDatabaseUserType(data.user_type);
+    const resumeFile = careerProfile?.resume_file ?? highSchoolProfile?.resume_file ?? null;
 
     const {
       data: savedAppUser,
@@ -135,6 +185,7 @@ export async function submitOnboarding(formData: FormData): Promise<SubmitOnboar
         company: careerProfile.company,
         job_title: null,
         job_description: careerProfile.job_description,
+        posting_url: careerProfile.posting_url || null,
         updated_at: now,
       };
 
@@ -208,20 +259,7 @@ export async function submitOnboarding(formData: FormData): Promise<SubmitOnboar
         return { success: false, error: "Saving resume metadata failed: resumes was not updated." };
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session?.access_token) {
-        try {
-          await fetch(`${API_BASE_URL}/api/resume/parse`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-        } catch {
-          // Resume parsing is best-effort; onboarding should still succeed if it fails.
-        }
-      }
+      await parseUploadedResumeIfPossible(resumeFile, session?.access_token);
     }
 
     const {

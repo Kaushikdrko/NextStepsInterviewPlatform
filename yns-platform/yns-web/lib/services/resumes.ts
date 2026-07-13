@@ -1,11 +1,19 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { hasValidResumeFile } from '@/lib/validations/onboarding';
 import { API_BASE_URL } from '@/lib/utils/api-client';
+import { hasValidResumeFile } from '@/lib/validations/onboarding';
+
+type UploadResumeStatus = 'uploading' | 'analyzing';
 
 type UploadResumeResult = {
   success: boolean;
   fileName?: string;
+  parseStatus?: 'parsed' | 'skipped' | 'failed';
+  parseWarning?: string;
   error?: string;
+};
+
+type UploadResumeOptions = {
+  onStatusChange?: (status: UploadResumeStatus) => void;
 };
 
 function getSafeFileName(fileName: string) {
@@ -21,17 +29,65 @@ function formatSupabaseError(action: string, message: string) {
   return `${action}: ${message}`;
 }
 
-export async function uploadResume(file: File): Promise<UploadResumeResult> {
+function shouldParseResumeFile(file: File) {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+}
+
+async function parseUploadedResume(file: File, accessToken?: string) {
+  if (!shouldParseResumeFile(file)) {
+    return {
+      parseStatus: 'skipped' as const,
+      parseWarning: 'Resume uploaded. Automatic resume analysis currently supports PDF files only.',
+    };
+  }
+
+  if (!accessToken) {
+    return {
+      parseStatus: 'failed' as const,
+      parseWarning: 'Resume uploaded, but analysis could not start because your session was unavailable.',
+    };
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/resume/parse`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        parseStatus: 'failed' as const,
+        parseWarning: `Resume uploaded, but analysis failed with status ${response.status}.`,
+      };
+    }
+
+    return { parseStatus: 'parsed' as const };
+  } catch (error) {
+    return {
+      parseStatus: 'failed' as const,
+      parseWarning: error instanceof Error ? `Resume uploaded, but analysis failed: ${error.message}` : 'Resume uploaded, but analysis failed.',
+    };
+  }
+}
+
+export async function uploadResume(file: File, options?: UploadResumeOptions): Promise<UploadResumeResult> {
   try {
     if (!hasValidResumeFile(file)) {
       return { success: false, error: 'Resume must be a PDF, DOC, or DOCX file.' };
     }
+
+    options?.onStatusChange?.('uploading');
 
     const supabase = createSupabaseBrowserClient();
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     if (userError && userError.name !== 'AuthSessionMissingError') {
       return { success: false, error: userError.message };
@@ -74,22 +130,10 @@ export async function uploadResume(file: File): Promise<UploadResumeResult> {
       return { success: false, error: 'Saving resume metadata failed: resumes was not updated.' };
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    options?.onStatusChange?.('analyzing');
+    const parseResult = await parseUploadedResume(file, session?.access_token);
 
-    if (session?.access_token) {
-      try {
-        await fetch(`${API_BASE_URL}/api/resume/parse`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-      } catch {
-        // Resume parsing is best-effort; the upload should still succeed if it fails.
-      }
-    }
-
-    return { success: true, fileName: file.name };
+    return { success: true, fileName: file.name, ...parseResult };
   } catch (error) {
     return {
       success: false,

@@ -310,6 +310,34 @@ export function OnboardingForm() {
     };
   };
 
+  const buildSubmissionFormData = (submission: OnboardingSubmission) => {
+    const formData = new FormData();
+    const resumeFile = submission.career_profile?.resume_file ?? submission.high_school_profile?.resume_file ?? null;
+    const payload: OnboardingSubmission = {
+      ...submission,
+      career_profile: submission.career_profile
+        ? {
+            ...submission.career_profile,
+            resume_file: null,
+          }
+        : undefined,
+      high_school_profile: submission.high_school_profile
+        ? {
+            ...submission.high_school_profile,
+            resume_file: null,
+          }
+        : undefined,
+    };
+
+    formData.append('payload', JSON.stringify(payload));
+
+    if (resumeFile) {
+      formData.append('resume_file', resumeFile);
+    }
+
+    return formData;
+  };
+
   const handleFinalSubmit = async () => {
     const isValid = await form.trigger();
     if (!isValid) return;
@@ -320,24 +348,7 @@ export function OnboardingForm() {
     setSubmitError(null);
     setIsSubmitting(true);
 
-    const resumeFile = finalObject.career_profile?.resume_file ?? finalObject.high_school_profile?.resume_file ?? null;
-    const payload = {
-      ...finalObject,
-      career_profile: finalObject.career_profile
-        ? { ...finalObject.career_profile, resume_file: undefined }
-        : undefined,
-      high_school_profile: finalObject.high_school_profile
-        ? { ...finalObject.high_school_profile, resume_file: undefined }
-        : undefined,
-    };
-
-    const formData = new FormData();
-    formData.set('payload', JSON.stringify(payload));
-    if (resumeFile) {
-      formData.set('resume_file', resumeFile);
-    }
-
-    const result = await submitOnboarding(formData);
+    const result = await submitOnboarding(buildSubmissionFormData(finalObject));
 
     setIsSubmitting(false);
 

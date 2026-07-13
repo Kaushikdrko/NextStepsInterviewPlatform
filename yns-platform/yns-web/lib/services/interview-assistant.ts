@@ -1,7 +1,7 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { API_BASE_URL } from '@/lib/utils/api-client';
 
-export type AssistantSessionType = 'behavioral' | 'technical' | 'mixed';
+export type AssistantSessionType = 'behavioral' | 'technical' | 'mixed' | 'resume';
 
 export type PlannedQuestion = {
   id: string;
@@ -13,6 +13,7 @@ export type PlannedQuestion = {
 };
 
 export type SessionPlan = {
+  session_type: AssistantSessionType;
   questions: PlannedQuestion[];
   target_minutes: number;
 };
@@ -143,7 +144,7 @@ async function assistantFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function getAssistantSessionType(mode: string): AssistantSessionType | null {
-  if (mode === 'behavioral' || mode === 'technical') {
+  if (mode === 'behavioral' || mode === 'technical' || mode === 'resume') {
     return mode;
   }
 

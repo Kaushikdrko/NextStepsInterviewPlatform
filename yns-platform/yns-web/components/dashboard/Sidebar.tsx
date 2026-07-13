@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { BrainCircuit, FileText, History, LayoutDashboard, LogOut, Mic, Settings, User } from 'lucide-react';
@@ -12,13 +13,27 @@ const navItems = [
   { label: 'Practice', href: '/practice', activePath: '/practice', icon: Mic },
   { label: 'History', href: '/history', activePath: '/history', icon: History },
   { label: 'Profile', href: '/profile', activePath: '/profile', icon: User },
-  { label: 'Resume', href: '/profile', activePath: '/profile', icon: FileText },
-  { label: 'Settings', href: '/dashboard', activePath: '/settings', icon: Settings },
+  { label: 'Resume', href: '/profile#resume', activePath: '/profile', hash: 'resume', icon: FileText },
+  { label: 'Settings', href: '/settings', activePath: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const [activeHash, setActiveHash] = useState('');
+
+  useEffect(() => {
+    const syncHash = () => {
+      setActiveHash(window.location.hash.replace('#', ''));
+    };
+
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+
+    return () => {
+      window.removeEventListener('hashchange', syncHash);
+    };
+  }, [pathname]);
 
   const handleLogout = async () => {
     const supabase = createSupabaseBrowserClient();
@@ -38,7 +53,11 @@ export function Sidebar() {
 
       <nav className="flex-1 space-y-2 px-3 py-4">
         {navItems.map((item) => {
-          const isActive = pathname === item.activePath || pathname.startsWith(`${item.activePath}/`);
+          const isActive =
+            item.hash === 'resume'
+              ? pathname === item.activePath && activeHash === 'resume'
+              : (pathname === item.activePath || pathname.startsWith(`${item.activePath}/`)) &&
+                !(item.activePath === '/profile' && activeHash === 'resume');
 
           return (
             <Link

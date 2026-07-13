@@ -60,7 +60,7 @@ export function WelcomeSection() {
             Start Interview Practice
           </Link>
           <Link
-            href="/onboarding"
+            href="/settings"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border-2 border-white/25 px-7 text-sm font-bold text-white transition hover:bg-white/10"
           >
             <UserRoundCog className="h-4 w-4" aria-hidden="true" />

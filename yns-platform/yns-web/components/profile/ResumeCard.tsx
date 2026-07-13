@@ -83,7 +83,7 @@ export function ResumeCard({ className }: ResumeCardProps) {
   const uploadedOn = formatDate(resume?.created_at);
 
   return (
-    <section className={cn('rounded-[10px] border border-slate-200 bg-white p-5 shadow-sm', className)}>
+    <section id="resume" className={cn('scroll-mt-6 rounded-[10px] border border-slate-200 bg-white p-5 shadow-sm', className)}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-bold text-slate-950">Resume</h2>
         {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" aria-hidden="true" /> : null}
