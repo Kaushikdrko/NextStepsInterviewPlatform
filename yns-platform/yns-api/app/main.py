@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.champion.router import router as champion_router
 from app.api.reports.router import router as reports_router
 from app.api.resume.router import router as resume_router
 from app.api.sessions.router import router as sessions_router
@@ -58,3 +59,7 @@ app.include_router(onboarding_summary.router, prefix="/api")
 app.include_router(sessions_router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(resume_router, prefix="/api/resume", tags=["resume"])
+
+# Champion Dashboard (mentor/admin side). Currently returns typed mock data —
+# see app/api/champion/service.py — while the Champion tables are being added.
+app.include_router(champion_router, prefix="/api/champion", tags=["champion"])
