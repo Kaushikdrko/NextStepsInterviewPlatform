@@ -68,8 +68,8 @@ jobs:
       - name: Type-check frontend
         run: npx tsc --noEmit --incremental false
 
-  backend-docker:
-    name: Backend Docker build
+  docker:
+    name: Docker builds
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -77,3 +77,6 @@ jobs:
 
       - name: Build backend image
         run: docker build -t yns-api-ci yns-platform/yns-api
+
+      - name: Build frontend image
+        run: docker build -t yns-web-ci yns-platform/yns-web
