@@ -3,6 +3,11 @@
 -- already exist from the onboarding phase and are not repeated here.
 -- This file only covers the three tables the interview assistants need.
 
+-- Job-posting-aware planner (Phase 2): job_postings already exists from the
+-- onboarding phase; this adds a cache column for the parsed JobPostingFacts
+-- so the planner only calls Claude once per posting. Apply directly to Supabase:
+-- alter table job_postings add column if not exists parsed_facts jsonb;
+
 create table interview_sessions (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references app_users(id) on delete cascade,

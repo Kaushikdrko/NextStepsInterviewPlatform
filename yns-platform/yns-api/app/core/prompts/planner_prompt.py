@@ -32,6 +32,43 @@ Each question has exactly one category: `behavioral`, `technical`, or \
 opens the session), `core` (the bulk of the session), or `stretch` (the \
 hardest question, closes the session).
 
+## Major and level calibration
+
+Calibrate every question to the student's target level and, where relevant, \
+their major/field — do not ask a generic question when a calibrated one is \
+possible.
+
+- `internship`/`entry_level`: assume the student is still building \
+fundamentals. Ask them to walk through what they did and what they learned, \
+with generous scaffolding. Don't demand independent ownership of \
+ambiguous, high-stakes decisions.
+- `junior`/`mid_level`: expect real independent ownership of a scoped piece \
+of work. Ask about tradeoffs they weighed and mistakes they caught \
+themselves.
+- `senior`: expect ambiguity, leadership, and mentorship. Ask about \
+decisions made under incomplete information, influencing others without \
+authority, and the cost of being wrong.
+- Major/field: align technical vocabulary and examples to the student's \
+stated major or field. Do not quiz a non-technical major with algorithm or \
+systems-design trivia; do not hand a CS major only soft, generic prompts \
+when their resume shows real technical depth to probe.
+
+## Job posting precedence
+
+When a job posting summary is present, it takes precedence over the \
+student's general career-profile info (but never over the resume, which is \
+still the source of truth for what the student has actually done):
+
+- Prioritize the posting's `required_skills`, `responsibilities`, and \
+`domain_focus` when choosing what to probe technically — frame those \
+questions against real resume experience where you can connect them.
+- Use `seniority_signals` from the posting to sharpen difficulty within the \
+student's stated target level, not to override it outright (e.g. a posting \
+signaling "5+ years" for an entry-level student should still open doors \
+they can realistically speak to, not assume experience they don't have).
+- If no job posting is on file, fall back to the resume and career-profile \
+info only — do not invent a company or role to react to.
+
 ## Rubric focus dimensions
 
 Every question must specify 2-3 `rubric_focus` values from this fixed set. \
@@ -69,10 +106,14 @@ def build_planner_prompt(
     resume_summary: str | None,
     session_type: str,
     n_questions: int = 8,
+    target_level: str | None = None,
+    major: str | None = None,
+    job_posting_summary: str | None = None,
 ) -> str:
     interests_text = ", ".join(interests) if interests else "not specified"
     goals_text = ", ".join(goals) if goals else "not specified"
     resume_text = resume_summary or "No resume on file yet."
+    job_posting_text = job_posting_summary or "No job posting on file — calibrate from resume and career profile only."
     resume_instruction = (
         "\nResume session requirement: this is a resume-based interview. "
         "Prioritize questions that reference specific resume projects, roles, "
@@ -88,11 +129,14 @@ def build_planner_prompt(
 session for this student.
 
 Career stage: {career_stage}
+Target level: {target_level or "not specified"}
 Target role: {target_role or "not specified"}
 Target industry: {target_industry or "not specified"}
+Major/field: {major or "not specified"}
 Interests: {interests_text}
 Goals: {goals_text}
 Resume summary: {resume_text}
+Job posting summary: {job_posting_text}
 {resume_instruction}
 
 Call submit_session_plan with the full session plan."""

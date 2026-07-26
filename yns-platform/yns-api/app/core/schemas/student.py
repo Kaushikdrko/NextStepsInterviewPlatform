@@ -21,6 +21,24 @@ class ResumeFacts(BaseModel):
     education: list[str] = Field(default_factory=list)
 
 
+class JobPostingFacts(BaseModel):
+    """Structured facts extracted from a job posting by job_posting_parser.
+
+    Populated lazily at session-creation time and cached on the
+    job_postings row; until then, the planner must treat this as absent
+    (StudentProfile.job_posting_facts is None).
+    """
+
+    model_config = {"extra": "forbid"}
+
+    required_skills: list[str] = Field(default_factory=list, max_length=20)
+    preferred_skills: list[str] = Field(default_factory=list, max_length=20)
+    responsibilities: list[str] = Field(default_factory=list, max_length=15)
+    seniority_signals: list[str] = Field(default_factory=list, max_length=10)
+    domain_focus: str | None = None
+    keywords: list[str] = Field(default_factory=list, max_length=15)
+
+
 class PassionProfile(BaseModel):
     """The YNS-specific "what problem do you want to solve" signal.
 
@@ -43,7 +61,9 @@ class StudentProfile(BaseModel):
     career_stage: CareerStage
     target_role: str | None = None
     target_level: TargetLevel | None = None
+    major: str | None = None
     interests: list[str] = Field(default_factory=list)
     goals: list[str] = Field(default_factory=list)
     resume_facts: ResumeFacts | None = None
     passion_profile: PassionProfile | None = None
+    job_posting_facts: JobPostingFacts | None = None

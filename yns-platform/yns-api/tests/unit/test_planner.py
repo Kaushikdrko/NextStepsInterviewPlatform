@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from app.core.assistants.planner import plan_session
 from app.core.schemas.session import SessionPlan
-from app.core.schemas.student import ResumeFacts, StudentProfile
+from app.core.schemas.student import JobPostingFacts, ResumeFacts, StudentProfile
 
 
 def make_profile(**overrides) -> StudentProfile:
@@ -85,6 +85,46 @@ def test_plan_handles_missing_resume(mock_call_claude):
     mock_call_claude.return_value = TWO_QUESTION_PLAN
 
     profile = make_profile(resume_facts=None)
+    plan = plan_session(profile, "behavioral")
+
+    assert isinstance(plan, SessionPlan)
+
+
+@patch("app.core.assistants.planner.call_claude")
+def test_plan_prompt_includes_major_and_target_level(mock_call_claude):
+    mock_call_claude.return_value = TWO_QUESTION_PLAN
+
+    profile = make_profile(target_level="senior", major="Computer Science")
+    plan_session(profile, "behavioral")
+
+    sent_prompt = mock_call_claude.call_args.kwargs["messages"][0]["content"]
+    assert "senior" in sent_prompt
+    assert "Computer Science" in sent_prompt
+
+
+@patch("app.core.assistants.planner.call_claude")
+def test_plan_prompt_includes_job_posting_summary(mock_call_claude):
+    mock_call_claude.return_value = TWO_QUESTION_PLAN
+
+    profile = make_profile(
+        job_posting_facts=JobPostingFacts(
+            required_skills=["Python", "Kubernetes"],
+            responsibilities=["Own the deployment pipeline"],
+            domain_focus="platform engineering",
+        )
+    )
+    plan_session(profile, "behavioral")
+
+    sent_prompt = mock_call_claude.call_args.kwargs["messages"][0]["content"]
+    assert "Kubernetes" in sent_prompt
+    assert "platform engineering" in sent_prompt
+
+
+@patch("app.core.assistants.planner.call_claude")
+def test_plan_handles_missing_job_posting(mock_call_claude):
+    mock_call_claude.return_value = TWO_QUESTION_PLAN
+
+    profile = make_profile(job_posting_facts=None)
     plan = plan_session(profile, "behavioral")
 
     assert isinstance(plan, SessionPlan)
