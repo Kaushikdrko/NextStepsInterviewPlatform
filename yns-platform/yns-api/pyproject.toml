@@ -4,4 +4,5 @@ testpaths = [
 ]
 markers = [
     "integration: real Claude API calls, run with `pytest -m integration`",
+    "database: real PostgreSQL, run with CHAMPION_TEST_DATABASE_URL set",
 ]
