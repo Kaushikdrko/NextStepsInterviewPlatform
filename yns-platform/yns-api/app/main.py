@@ -60,6 +60,6 @@ app.include_router(sessions_router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(resume_router, prefix="/api/resume", tags=["resume"])
 
-# Champion Dashboard (mentor/admin side). Currently returns typed mock data —
-# see app/api/champion/service.py — while the Champion tables are being added.
+# Champion Dashboard (organization-wide student engagement). Every route
+# requires a champion/admin role — see app/api/champion/router.py.
 app.include_router(champion_router, prefix="/api/champion", tags=["champion"])

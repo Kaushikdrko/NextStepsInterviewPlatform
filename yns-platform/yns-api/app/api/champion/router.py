@@ -1,195 +1,81 @@
 """Champion Dashboard API routes.
 
 Mounted at ``/api/champion`` in ``app/main.py``. Responses use the schemas in
-``models.py`` (camelCase JSON) and are backed by the temporary service layer.
+``models.py`` (camelCase JSON).
+
+Every route requires a champion or admin role. Authorization is enforced here,
+independently of the frontend route guard in ``yns-web/middleware.ts``.
 """
 
-from fastapi import APIRouter, HTTPException
+from typing import Any
 
-from app.api.champion import service
-from app.api.champion.mock_data import MOCK_CHAMPION_ID
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from app.api.champion import domain, service
 from app.api.champion.models import (
-    ActivityItem,
-    AttentionAlert,
-    ChampionNote,
-    ChampionSettings,
-    CreateAssignmentRequest,
-    CreateNoteRequest,
-    DashboardSummary,
-    InterviewReview,
-    InterviewReviewDetail,
-    Meeting,
-    PracticeAssignment,
-    StudentDetail,
-    StudentProgress,
-    StudentSummary,
-    UpdateAssignmentRequest,
-    UpdateNoteRequest,
-    UpdateReviewRequest,
+    ChampionProfile,
+    ChampionStudentDetails,
+    ChampionStudentListResponse,
 )
+from app.database import get_db
+from app.dependencies import get_current_claims, require_champion_user
 
-router = APIRouter()
-
-
-# TEMP: resolve the "current" champion. Once auth is wired, replace this with a
-# dependency that reads the Supabase JWT (see app/dependencies.py) and verifies
-# the user's ``user_type`` is a champion/admin. Kept as a plain call so the shared
-# dependencies module is untouched for now.
-def current_champion_id() -> str:
-    return MOCK_CHAMPION_ID
+router = APIRouter(dependencies=[Depends(require_champion_user)])
 
 
-# --- Dashboard overview ---------------------------------------------------
+@router.get("/me", response_model=ChampionProfile)
+def get_champion_profile(
+    champion_id: str = Depends(require_champion_user),
+    claims: dict[str, Any] = Depends(get_current_claims),
+    db: Session = Depends(get_db),
+):
+    return service.get_champion_profile(db, champion_id, claims)
 
 
-@router.get("/dashboard/summary", response_model=DashboardSummary)
-def dashboard_summary():
-    return service.get_dashboard_summary(current_champion_id())
+@router.get("/students", response_model=ChampionStudentListResponse)
+def list_students(
+    search: str | None = Query(default=None, max_length=100),
+    status: domain.ActivityStatus = Query(default=domain.DEFAULT_STATUS),
+    range_key: domain.DashboardRange = Query(default=domain.DEFAULT_RANGE, alias="range"),
+    sort_by: domain.SortBy = Query(default=domain.DEFAULT_SORT_BY, alias="sortBy"),
+    sort_order: domain.SortOrder = Query(default=domain.DEFAULT_SORT_ORDER, alias="sortOrder"),
+    page: int = Query(default=1, ge=1, le=10_000),
+    page_size: int = Query(
+        default=domain.DEFAULT_PAGE_SIZE, ge=1, le=domain.MAX_PAGE_SIZE, alias="pageSize"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Organization-wide student list.
+
+    Search, activity filtering, sorting, date-range aggregation and pagination
+    all happen in Postgres. Invalid filter, sort and pagination values are
+    rejected with a 422 by the Literal/ge/le constraints above.
+    """
+    return service.list_students(
+        db,
+        search=search,
+        status=status,
+        range_key=range_key,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        page=page,
+        page_size=page_size,
+    )
 
 
-@router.get("/dashboard/alerts", response_model=list[AttentionAlert])
-def dashboard_alerts():
-    return service.get_attention_alerts(current_champion_id())
+@router.get("/students/{student_id}", response_model=ChampionStudentDetails)
+def get_student(
+    student_id: str,
+    range_key: domain.DashboardRange = Query(default=domain.DEFAULT_RANGE, alias="range"),
+    db: Session = Depends(get_db),
+):
+    # A malformed id would otherwise reach Postgres as a bad uuid cast.
+    if not service.is_valid_student_id(student_id):
+        raise HTTPException(status_code=404, detail="Student not found")
 
-
-@router.get("/dashboard/activity", response_model=list[ActivityItem])
-def dashboard_activity(limit: int = 6):
-    return service.get_recent_activity(current_champion_id(), limit=limit)
-
-
-# --- Students -------------------------------------------------------------
-
-
-@router.get("/students", response_model=list[StudentSummary])
-def list_students():
-    return service.get_assigned_students(current_champion_id())
-
-
-@router.get("/students/{student_id}", response_model=StudentDetail)
-def get_student(student_id: str):
-    student = service.get_student_detail(current_champion_id(), student_id)
+    student = service.get_student_details(db, student_id, range_key=range_key)
     if student is None:
-        raise HTTPException(status_code=404, detail="Student not found or not assigned to you")
+        raise HTTPException(status_code=404, detail="Student not found")
+
     return student
-
-
-@router.get("/students/{student_id}/progress", response_model=StudentProgress)
-def get_student_progress(student_id: str):
-    student = service.get_student_detail(current_champion_id(), student_id)
-    if student is None:
-        raise HTTPException(status_code=404, detail="Student not found or not assigned to you")
-    return StudentProgress(score_trend=student.score_trend, skills=student.skills)
-
-
-@router.get("/students/{student_id}/notes", response_model=list[ChampionNote])
-def get_student_notes(student_id: str):
-    champion_id = current_champion_id()
-    if not service.is_student_assigned(champion_id, student_id):
-        raise HTTPException(status_code=404, detail="Student not found or not assigned to you")
-    return service.get_notes(champion_id, student_id=student_id)
-
-
-@router.post("/students/{student_id}/notes", response_model=ChampionNote, status_code=201)
-def create_student_note(student_id: str, payload: CreateNoteRequest):
-    note = service.create_note(current_champion_id(), student_id, payload)
-    if note is None:
-        raise HTTPException(status_code=404, detail="Student not found or not assigned to you")
-    return note
-
-
-@router.post("/students/{student_id}/assignments", response_model=PracticeAssignment, status_code=201)
-def create_student_assignment(student_id: str, payload: CreateAssignmentRequest):
-    assignment = service.create_assignment(current_champion_id(), student_id, payload)
-    if assignment is None:
-        raise HTTPException(status_code=404, detail="Student not found or not assigned to you")
-    return assignment
-
-
-# --- Interviews -----------------------------------------------------------
-
-
-@router.get("/interviews", response_model=list[InterviewReview])
-def list_interviews():
-    return service.get_interview_reviews(current_champion_id())
-
-
-@router.get("/interviews/{interview_id}", response_model=InterviewReviewDetail)
-def get_interview(interview_id: str):
-    detail = service.get_interview_detail(current_champion_id(), interview_id)
-    if detail is None:
-        raise HTTPException(status_code=404, detail="Interview not found or not accessible")
-    return detail
-
-
-@router.patch("/interviews/{interview_id}/review", response_model=InterviewReviewDetail)
-def review_interview(interview_id: str, payload: UpdateReviewRequest):
-    detail = service.update_interview_review(
-        current_champion_id(), interview_id, payload.review_status, payload.champion_review_notes
-    )
-    if detail is None:
-        raise HTTPException(status_code=404, detail="Interview not found or not accessible")
-    return detail
-
-
-# --- Notes ----------------------------------------------------------------
-
-
-@router.get("/notes", response_model=list[ChampionNote])
-def list_notes():
-    return service.get_notes(current_champion_id())
-
-
-@router.patch("/notes/{note_id}", response_model=ChampionNote)
-def patch_note(note_id: str, payload: UpdateNoteRequest):
-    note = service.update_note(
-        current_champion_id(), note_id, payload.content, payload.visibility, payload.category
-    )
-    if note is None:
-        raise HTTPException(status_code=404, detail="Note not found or not accessible")
-    return note
-
-
-@router.delete("/notes/{note_id}", status_code=204)
-def remove_note(note_id: str):
-    if not service.delete_note(current_champion_id(), note_id):
-        raise HTTPException(status_code=404, detail="Note not found or not accessible")
-    return None
-
-
-# --- Assignments ----------------------------------------------------------
-
-
-@router.get("/assignments", response_model=list[PracticeAssignment])
-def list_assignments():
-    return service.get_assignments(current_champion_id())
-
-
-@router.patch("/assignments/{assignment_id}", response_model=PracticeAssignment)
-def patch_assignment(assignment_id: str, payload: UpdateAssignmentRequest):
-    assignment = service.update_assignment(
-        current_champion_id(), assignment_id, payload.status, payload.due_date, payload.instructions
-    )
-    if assignment is None:
-        raise HTTPException(status_code=404, detail="Assignment not found or not accessible")
-    return assignment
-
-
-# --- Meetings -------------------------------------------------------------
-
-
-@router.get("/meetings", response_model=list[Meeting])
-def list_meetings():
-    return service.get_meetings(current_champion_id())
-
-
-# --- Settings -------------------------------------------------------------
-
-
-@router.get("/settings", response_model=ChampionSettings)
-def get_settings():
-    return service.get_settings(current_champion_id())
-
-
-@router.patch("/settings", response_model=ChampionSettings)
-def update_settings(payload: ChampionSettings):
-    return service.update_settings(current_champion_id(), payload)
