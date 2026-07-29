@@ -141,7 +141,7 @@ export function AuthFormCard({
       }
 
       persistSessionForServer(data.session);
-      const { redirectTo, error: redirectError } = await getPostLoginRedirect(data.user.id, supabase);
+      const { redirectTo, error: redirectError } = await getPostLoginRedirect(data.user.id, supabase, data.user);
 
       if (redirectError) {
         setError(redirectError);
