@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BrainCircuit, FileText, History, LayoutDashboard, LogOut, Mic, Settings, User } from 'lucide-react';
+import { FileText, History, LayoutDashboard, LogOut, Mic, Settings, Sparkles, User } from 'lucide-react';
 
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -42,13 +42,20 @@ export function Sidebar() {
     router.refresh();
   };
 
+  const handleNavClick = (hash?: string) => {
+    setActiveHash(hash ?? '');
+  };
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[220px] flex-col border-r border-slate-200 bg-white lg:flex">
-      <Link href="/dashboard" className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-200">
-          <BrainCircuit className="h-5 w-5" aria-hidden="true" />
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[220px] flex-col border-r border-[#e8ded8] bg-[#fffdfa] lg:flex">
+      <Link href="/dashboard" className="flex h-16 items-center gap-3 border-b border-[#e8ded8] px-5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#a83223] text-white shadow-sm shadow-[#f8bfa9]">
+          <Sparkles className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="text-sm font-bold text-slate-950">InterviewPrep AI</span>
+        <span className="flex flex-col text-sm font-extrabold leading-[1.08] tracking-tight text-[#8f200f]">
+          <span>your</span>
+          <span>next steps</span>
+        </span>
       </Link>
 
       <nav className="flex-1 space-y-2 px-3 py-4">
@@ -63,9 +70,10 @@ export function Sidebar() {
             <Link
               key={item.label}
               href={item.href}
+              onClick={() => handleNavClick(item.hash)}
               className={cn(
-                'flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-950',
-                isActive ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100 hover:bg-indigo-600 hover:text-white' : '',
+                'flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-bold text-[#7a6a65] transition hover:bg-[#fff4ef] hover:text-[#8f200f]',
+                isActive ? 'bg-[#a83223] text-white shadow-sm shadow-[#f8bfa9] hover:bg-[#a83223] hover:text-white' : '',
               )}
             >
               <item.icon className="h-4 w-4" aria-hidden="true" />
@@ -75,11 +83,11 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-slate-200 p-3">
+      <div className="border-t border-[#e8ded8] p-3">
         <button
           type="button"
           onClick={handleLogout}
-          className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+          className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-bold text-[#7a6a65] transition hover:bg-[#fff4ef] hover:text-[#8f200f]"
         >
           <LogOut className="h-4 w-4" aria-hidden="true" />
           Logout

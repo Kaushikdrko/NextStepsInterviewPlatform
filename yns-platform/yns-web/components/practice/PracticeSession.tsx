@@ -234,6 +234,7 @@ export function PracticeSession() {
   const isPreparingInterview = isAssistantMode && assistantQuestions.length === 0 && !assistantError;
   const questions = assistantQuestions.length > 0 ? assistantQuestions : fallbackQuestions;
   const currentQuestion = questions[currentQuestionIndex];
+  const isResumeSessionBlocked = selectedMode === 'resume' && Boolean(assistantError) && assistantQuestions.length === 0 && !isPreparingInterview;
   const questionNumber = currentQuestionIndex + 1;
   const progressValue = (questionNumber / questions.length) * 100;
   const words = countWords(answer);
@@ -693,7 +694,7 @@ export function PracticeSession() {
       <main className="min-h-screen bg-slate-50 text-slate-950">
         <Sidebar />
 
-        <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-5 sm:px-6 lg:pl-[220px]">
+        <div className="min-h-screen bg-[linear-gradient(180deg,#fbfaf7_0%,#fff4ef_100%)] px-4 py-5 sm:px-6 lg:pl-[220px]">
           <div className="mx-auto w-full max-w-6xl lg:px-6">
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <Card className="rounded-2xl border-slate-200/80 shadow-lg shadow-slate-200/70">
@@ -854,6 +855,62 @@ export function PracticeSession() {
                 </Card>
               </aside>
             </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (isResumeSessionBlocked) {
+    return (
+      <main className="min-h-screen bg-slate-50 text-slate-950">
+        <Sidebar />
+
+        <div className="min-h-screen px-4 py-8 sm:px-6 lg:pl-[220px]">
+          <div className="mx-auto w-full max-w-3xl space-y-6 lg:px-6">
+            <header className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                <Link href="/practice" className="transition hover:text-slate-950">
+                  Interview Practice
+                </Link>
+                <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                <span className="text-slate-950">{title}</span>
+              </div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">{title}</h1>
+            </header>
+
+            <Card className="rounded-2xl border-amber-200 bg-amber-50 shadow-sm">
+              <CardContent className="p-6 sm:p-7">
+                <div className="flex gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                    <AlertCircle className="h-6 w-6" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-extrabold text-amber-950">Resume questions are not ready yet</h2>
+                    <p className="mt-2 text-sm font-bold leading-6 text-amber-900">{assistantError}</p>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-amber-800">
+                      Upload a PDF resume or try again after the resume finishes processing. The app will generate fresh resume-specific questions once the parsed resume is available.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Button
+                    type="button"
+                    onClick={resetPractice}
+                    className="h-11 rounded-xl bg-indigo-600 px-5 font-extrabold text-white hover:bg-indigo-700"
+                  >
+                    Try Again
+                  </Button>
+                  <Link href="/profile#resume" className={buttonVariants({ variant: 'outline', className: 'h-11 rounded-xl px-5 font-extrabold' })}>
+                    Upload Resume
+                  </Link>
+                  <Link href="/practice" className={buttonVariants({ variant: 'ghost', className: 'h-11 rounded-xl px-5 font-extrabold' })}>
+                    Back to Practice
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>

@@ -41,15 +41,17 @@ function shouldParseResumeFile(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
-async function parseUploadedResumeIfPossible(file: File, accessToken?: string) {
+async function parseUploadedResumeIfPossible(file: File, resumeId: string, accessToken?: string) {
   if (!shouldParseResumeFile(file) || !accessToken) return;
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/resume/parse`, {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
+      body: JSON.stringify({ resume_id: resumeId }),
     });
 
     if (!response.ok) {
@@ -259,7 +261,7 @@ export async function submitOnboarding(formData: FormData): Promise<SubmitOnboar
         return { success: false, error: "Saving resume metadata failed: resumes was not updated." };
       }
 
-      await parseUploadedResumeIfPossible(resumeFile, session?.access_token);
+      await parseUploadedResumeIfPossible(resumeFile, savedResume.id, session?.access_token);
     }
 
     const {

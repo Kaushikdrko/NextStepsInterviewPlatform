@@ -107,8 +107,8 @@ export function PracticeProgressGraph() {
         <svg className="h-[230px] w-full" viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`} role="img" aria-label="Practice progress chart">
           <defs>
             <linearGradient id="practice-progress-area" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+              <stop offset="0%" stopColor="#ffcc3d" stopOpacity="0.26" />
+              <stop offset="100%" stopColor="#ffcc3d" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -119,11 +119,11 @@ export function PracticeProgressGraph() {
           })}
 
           <path d={areaPath} fill="url(#practice-progress-area)" />
-          <path d={linePath} fill="none" stroke="#4f46e5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+          <path d={linePath} fill="none" stroke="#a92712" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
 
           {points.map((point, index) => (
             <g key={weeklyProgress[index].day}>
-              <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#4f46e5" strokeWidth="3" />
+              <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#a92712" strokeWidth="3" />
               <text x={point.x} y={chartHeight + 16} textAnchor="middle" className="fill-slate-500 text-[12px] font-bold">
                 {weeklyProgress[index].day}
               </text>

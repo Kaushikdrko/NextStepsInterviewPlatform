@@ -1,32 +1,46 @@
 import type { Config } from 'tailwindcss';
 
+const ynsRed = {
+  50: '#fff4ef',
+  100: '#ffe1d6',
+  200: '#f8bfa9',
+  300: '#ea8f6d',
+  400: '#d45731',
+  500: '#b33117',
+  600: '#a92712',
+  700: '#8f200f',
+  800: '#72190c',
+  900: '#4d1007',
+  950: '#2b0803',
+};
+
+const ynsGold = {
+  50: '#fff9e6',
+  100: '#ffefb8',
+  200: '#ffe37c',
+  300: '#ffcc3d',
+  400: '#f7b820',
+  500: '#d99a09',
+  600: '#b87506',
+  700: '#935407',
+  800: '#773f0b',
+  900: '#63340f',
+  950: '#391a04',
+};
+
 export default {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Your Next Steps brand palette, sampled from the Champion Dashboard
-        // design. Maroon is the primary interaction colour; gold is an accent
-        // only. These are additive — existing pages keep their own classes.
-        maroon: {
-          50: '#FBF1F4',
-          100: '#F6DFE5',
-          200: '#EDBFCB',
-          300: '#DF94A8',
-          400: '#C86281',
-          500: '#AB3A59',
-          600: '#97213F',
-          700: '#88122A',
-          800: '#6E0F22',
-          900: '#4F0B19',
-        },
-        gold: {
-          50: '#FDF8EC',
-          100: '#F8ECCB',
-          400: '#D9B450',
-          500: '#C9A227',
-          600: '#A8851C',
-        },
+        brand: ynsRed,
+        maroon: ynsRed,
+        gold: ynsGold,
+        indigo: ynsRed,
+        violet: ynsRed,
+        blue: ynsRed,
+        sky: ynsGold,
+        purple: ynsGold,
       },
       keyframes: {
         'drawer-in': {

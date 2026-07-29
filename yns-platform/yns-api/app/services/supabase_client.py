@@ -152,22 +152,38 @@ def update_session_status(session_id: str, status: str) -> None:
     client.table("interview_sessions").update(update_data).eq("id", session_id).execute()
 
 
-def download_resume_bytes(user_id: str) -> tuple[str, bytes]:
+def get_latest_resume_metadata(user_id: str) -> dict[str, Any] | None:
     client = get_supabase_client()
     result = (
         client.table("resumes")
-        .select("id, storage_path")
+        .select("id, storage_path, mime_type, file_name, extracted_text")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .limit(1)
         .execute()
     )
-    if not result.data:
-        raise ValueError(f"No resume found for user {user_id}")
+    return result.data[0] if result.data else None
 
-    resume_id = result.data[0]["id"]
-    storage_path = result.data[0]["storage_path"]
-    return resume_id, client.storage.from_("resumes").download(storage_path)
+
+def download_resume_bytes(user_id: str, resume_id: str | None = None) -> tuple[dict[str, Any], bytes]:
+    client = get_supabase_client()
+    query = (
+        client.table("resumes")
+        .select("id, storage_path, mime_type, file_name, extracted_text")
+        .eq("user_id", user_id)
+    )
+
+    if resume_id:
+        query = query.eq("id", resume_id).limit(1)
+    else:
+        query = query.order("created_at", desc=True).limit(1)
+
+    result = query.execute()
+    if not result.data:
+        raise ValueError("Resume not found")
+
+    resume = result.data[0]
+    return resume, client.storage.from_("resumes").download(resume["storage_path"])
 
 
 def write_resume_extracted_text(resume_id: str, extracted_text: str) -> None:

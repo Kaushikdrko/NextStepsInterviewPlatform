@@ -16,15 +16,19 @@ from app.core.assistants.evaluator import evaluate_turn
 from app.core.assistants.interviewer import get_interviewer_response
 from app.core.assistants.planner import plan_session
 from app.core.schemas.session import PlannedQuestion
+from app.services.resume_parser import parse_resume_pdf
 from app.dependencies import get_current_student
 from app.services.supabase_client import (
     build_student_profile,
+    download_resume_bytes,
     get_last_n_turns,
+    get_latest_resume_metadata,
     get_session_with_plan,
     get_sessions_for_user,
     get_student_profile,
     get_turns_for_session,
     update_session_status,
+    write_resume_extracted_text,
     write_session,
     write_turn,
 )
@@ -43,6 +47,42 @@ def _load_profile(user_id: str):
     if raw is None:
         raise HTTPException(status_code=404, detail="Profile not found — complete onboarding first")
     return build_student_profile(raw)
+
+
+def _is_pdf_resume(resume: dict) -> bool:
+    file_name = resume.get("file_name") or ""
+    return resume.get("mime_type") == "application/pdf" or file_name.lower().endswith(".pdf")
+
+
+def _ensure_resume_ready_for_session(user_id: str) -> None:
+    resume = get_latest_resume_metadata(user_id)
+
+    if resume is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Upload a PDF resume before starting resume-based questions.",
+        )
+
+    if resume.get("extracted_text"):
+        return
+
+    if not _is_pdf_resume(resume):
+        raise HTTPException(
+            status_code=400,
+            detail="Resume-based questions require a parsed PDF resume. Please upload a PDF resume.",
+        )
+
+    try:
+        resume_row, pdf_bytes = download_resume_bytes(user_id, resume["id"])
+        facts = parse_resume_pdf(pdf_bytes)
+        write_resume_extracted_text(resume_row["id"], facts.model_dump_json())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Resume parsing failed. Try uploading the resume again before starting resume-based questions.",
+        ) from exc
 
 
 def _get_owned_session(session_id: str, user_id: str) -> dict:
@@ -110,6 +150,9 @@ def create_session(
     body: CreateSessionRequest,
     user_id: str = Depends(get_current_student),
 ):
+    if body.session_type == "resume":
+        _ensure_resume_ready_for_session(user_id)
+
     profile = _load_profile(user_id)
     plan = plan_session(profile, body.session_type)
 
