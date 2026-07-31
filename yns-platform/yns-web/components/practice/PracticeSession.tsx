@@ -36,12 +36,11 @@ import {
   createAssistantSession,
   getAssistantSessionType,
   submitAssistantTurn,
+  updateAssistantSessionStatus,
   type PlannedQuestion,
   type TurnEvaluation,
 } from '@/lib/services/interview-assistant';
-import { createInterviewFeedbackSession, saveInterviewFeedbackSession } from '@/lib/services/interview-feedback';
 import { getCurrentJobPosting, saveCurrentJobPosting } from '@/lib/services/job-postings';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
 type PracticeMode = 'behavioral' | 'technical' | 'resume' | 'job_posting' | 'general';
@@ -230,6 +229,8 @@ export function PracticeSession() {
   const [jobPostingMessage, setJobPostingMessage] = useState('');
   const [jobPostingError, setJobPostingError] = useState('');
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const answerActionInFlightRef = useRef(false);
+  const completionInFlightRef = useRef(false);
 
   const isPreparingInterview = isAssistantMode && assistantQuestions.length === 0 && !assistantError;
   const questions = assistantQuestions.length > 0 ? assistantQuestions : fallbackQuestions;
@@ -388,46 +389,24 @@ export function PracticeSession() {
     return submittedAnswer;
   };
 
-  const completeSession = async (finalAnswers: SubmittedAnswer[]) => {
+  const completeSession = async () => {
+    if (completionInFlightRef.current) return;
+
     try {
+      completionInFlightRef.current = true;
       setIsCompletingSession(true);
       setCompletionError('');
       stopRecording();
 
-      const supabase = createSupabaseBrowserClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user?.id) {
-        throw new Error(userError?.message ?? 'You must be signed in to view interview feedback.');
+      if (!assistantSessionId) {
+        throw new Error('Backend feedback is not available for this interview mode yet.');
       }
 
-      const feedbackSession = createInterviewFeedbackSession({
-        userId: user.id,
-        assistantSessionId,
-        mode: selectedMode,
-        title,
-        totalQuestions: questions.length,
-        totalTimeSeconds: sessionTimeSeconds,
-        answers: finalAnswers.map((item) => ({
-          questionId: item.questionId,
-          questionNumber: item.questionNumber,
-          questionText: item.question,
-          userAnswer: item.answer,
-          timeSpentSeconds: item.timeSpentSeconds,
-          submittedAt: item.submittedAt,
-          aiFeedback: item.aiFeedback,
-          score: item.score,
-          strengths: item.strengths,
-          improvements: item.improvements,
-        })),
-      });
-
-      saveInterviewFeedbackSession(feedbackSession);
-      router.push(`/practice/session/${feedbackSession.sessionId}/feedback`);
+      await updateAssistantSessionStatus(assistantSessionId, 'completed');
+      router.push(`/practice/session/${assistantSessionId}/feedback`);
     } catch (error) {
+      completionInFlightRef.current = false;
+      answerActionInFlightRef.current = false;
       setCompletionError(error instanceof Error ? error.message : 'Unable to generate interview feedback.');
       setIsCompletingSession(false);
     }
@@ -435,7 +414,7 @@ export function PracticeSession() {
 
   const goToNextQuestion = () => {
     if (isLastQuestion) {
-      void completeSession(submittedAnswers);
+      void completeSession();
       return;
     }
 
@@ -448,9 +427,13 @@ export function PracticeSession() {
   };
 
   const handleSubmitAnswer = async () => {
+    if (answerActionInFlightRef.current || isCompletingSession || isPreparingInterview) return;
+
     if (!isSubmitted) {
       if (!answer.trim()) return;
 
+      answerActionInFlightRef.current = true;
+      let didSaveAnswer = false;
       try {
         setIsSubmittingAnswer(true);
         setAssistantError('');
@@ -464,41 +447,61 @@ export function PracticeSession() {
 
         saveCurrentAnswer(answer, feedback);
         setIsSubmitted(true);
+        didSaveAnswer = true;
       } catch (error) {
-        setAssistantError(error instanceof Error ? error.message : 'AI evaluator was unavailable. Your answer was saved locally.');
-        saveCurrentAnswer(answer);
-        setIsSubmitted(true);
+        setAssistantError(error instanceof Error ? error.message : 'Unable to save your answer. Please try submitting again.');
       } finally {
+        if (didSaveAnswer) {
+          window.setTimeout(() => {
+            answerActionInFlightRef.current = false;
+          }, 250);
+        } else {
+          answerActionInFlightRef.current = false;
+        }
         setIsSubmittingAnswer(false);
       }
       return;
     }
 
+    answerActionInFlightRef.current = true;
     goToNextQuestion();
+    window.setTimeout(() => {
+      answerActionInFlightRef.current = false;
+    }, 250);
   };
 
   const handleSkipQuestion = async () => {
-    let nextAnswers = submittedAnswers;
+    if (answerActionInFlightRef.current || isCompletingSession || isPreparingInterview) return;
 
+    answerActionInFlightRef.current = true;
     if (!isSubmitted) {
       if (assistantSessionId) {
         try {
+          setIsSubmittingAnswer(true);
+          setAssistantError('');
           await submitAssistantTurn(assistantSessionId, currentQuestionIndex, '');
         } catch (error) {
-          setAssistantError(error instanceof Error ? error.message : 'AI evaluator was unavailable. Your answer was saved locally.');
+          answerActionInFlightRef.current = false;
+          setIsSubmittingAnswer(false);
+          setAssistantError(error instanceof Error ? error.message : 'Unable to save this skipped question. Please try again.');
+          return;
+        } finally {
+          setIsSubmittingAnswer(false);
         }
       }
 
-      const submittedAnswer = saveCurrentAnswer('');
-      nextAnswers = upsertSubmittedAnswer(submittedAnswers, submittedAnswer);
+      saveCurrentAnswer('');
     }
 
     if (isLastQuestion) {
-      void completeSession(nextAnswers);
+      void completeSession();
       return;
     }
 
     goToNextQuestion();
+    window.setTimeout(() => {
+      answerActionInFlightRef.current = false;
+    }, 250);
   };
 
   const startRecording = () => {
@@ -568,18 +571,33 @@ export function PracticeSession() {
     startRecording();
   };
 
-  const handleConfirmEndSession = () => {
-    const nextAnswers =
-      !isSubmitted && answer.trim()
-        ? upsertSubmittedAnswer(submittedAnswers, createSubmittedAnswer(answer))
-        : submittedAnswers;
+  const handleConfirmEndSession = async () => {
+    if (completionInFlightRef.current || answerActionInFlightRef.current) return;
 
-    if (nextAnswers !== submittedAnswers) {
-      setSubmittedAnswers(nextAnswers);
+    if (!isSubmitted && answer.trim()) {
+      answerActionInFlightRef.current = true;
+      try {
+        setIsSubmittingAnswer(true);
+        setAssistantError('');
+        let feedback: Pick<SubmittedAnswer, 'aiFeedback' | 'score' | 'strengths' | 'improvements'> | undefined;
+
+        if (assistantSessionId) {
+          const turn = await submitAssistantTurn(assistantSessionId, currentQuestionIndex, answer.trim());
+          feedback = getEvaluationFeedback(turn.evaluation);
+        }
+
+        saveCurrentAnswer(answer, feedback);
+      } catch (error) {
+        setAssistantError(error instanceof Error ? error.message : 'Unable to save your answer. Please try again.');
+        return;
+      } finally {
+        answerActionInFlightRef.current = false;
+        setIsSubmittingAnswer(false);
+      }
     }
 
     setShowEndSessionModal(false);
-    void completeSession(nextAnswers);
+    void completeSession();
   };
 
   const resetPractice = () => {

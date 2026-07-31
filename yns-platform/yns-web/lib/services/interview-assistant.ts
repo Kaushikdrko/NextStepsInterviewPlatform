@@ -72,10 +72,27 @@ export type SessionSummary = {
   question_count: number;
   answered_count: number;
   average_rating: number | null;
+  duration_minutes: number | null;
 };
 
 export type SessionListResponse = {
   sessions: SessionSummary[];
+};
+
+export type DashboardStatsResponse = {
+  interviews_completed: number;
+  questions_answered: number;
+  average_feedback_score: number | null;
+  practice_streak_days: number;
+};
+
+export type WeeklyProgressItem = {
+  day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+  questions: number;
+};
+
+export type WeeklyProgressResponse = {
+  items: WeeklyProgressItem[];
 };
 
 export type SessionTurnDetail = {
@@ -89,9 +106,35 @@ export type SessionDetailResponse = {
   session_id: string;
   session_type: string;
   status: string;
+  started_at: string;
   created_at: string;
   completed_at: string | null;
   turns: SessionTurnDetail[];
+};
+
+export type InterviewFeedbackItem = {
+  questionId: string;
+  questionNumber: number;
+  questionText: string;
+  userAnswer: string;
+  aiFeedback: string;
+  score?: number;
+  strengths: string[];
+  improvements: string[];
+};
+
+export type InterviewFeedbackSession = {
+  sessionId: string;
+  mode: string;
+  title: string;
+  completedAt: string;
+  totalQuestions: number;
+  answeredQuestions: number;
+  totalTimeSeconds: number;
+  averageScore?: number;
+  strongestArea?: string;
+  mainImprovementArea?: string;
+  items: InterviewFeedbackItem[];
 };
 
 async function getAccessToken() {
@@ -169,14 +212,38 @@ export function submitAssistantTurn(sessionId: string, turnIndex: number, answer
   });
 }
 
+export function updateAssistantSessionStatus(sessionId: string, status: 'completed' | 'abandoned') {
+  return assistantFetch<{ success: boolean }>(`/api/sessions/${sessionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
 export function generateAssistantReport(sessionId: string) {
   return assistantFetch<GenerateReportResponse>(`/api/reports/${sessionId}`, {
     method: 'POST',
   });
 }
 
-export function getSessionHistory() {
-  return assistantFetch<SessionListResponse>('/api/sessions/');
+export function getAssistantReport(sessionId: string) {
+  return assistantFetch<GenerateReportResponse>(`/api/reports/${sessionId}`);
+}
+
+export function getSessionHistory(query?: string) {
+  const params = new URLSearchParams();
+  if (query?.trim()) {
+    params.set('q', query.trim());
+  }
+
+  return assistantFetch<SessionListResponse>(`/api/sessions/${params.size > 0 ? `?${params.toString()}` : ''}`);
+}
+
+export function getDashboardStats() {
+  return assistantFetch<DashboardStatsResponse>('/api/sessions/stats');
+}
+
+export function getWeeklyProgress() {
+  return assistantFetch<WeeklyProgressResponse>('/api/sessions/weekly-progress');
 }
 
 export function getSessionDetail(sessionId: string) {
