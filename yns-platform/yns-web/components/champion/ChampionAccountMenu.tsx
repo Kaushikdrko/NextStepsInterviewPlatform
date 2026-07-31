@@ -124,7 +124,7 @@ export function ChampionAccountMenu({
             role="menuitem"
             onClick={() => {
               close(false);
-              router.push('/settings');
+              router.push('/champion/settings');
             }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none"
           >

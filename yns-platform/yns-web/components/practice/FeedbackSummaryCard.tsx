@@ -1,7 +1,7 @@
 import { BarChart3, CheckCircle2, Clock3, Target, Trophy } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
-import type { InterviewFeedbackSession } from '@/lib/services/interview-feedback';
+import type { InterviewFeedbackSession } from '@/lib/services/interview-assistant';
 
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);

@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import type { InterviewFeedbackItem } from '@/lib/services/interview-feedback';
+import type { InterviewFeedbackItem } from '@/lib/services/interview-assistant';
 
 function getScoreClasses(score?: number) {
   if (typeof score !== 'number') return 'bg-slate-100 text-slate-600';

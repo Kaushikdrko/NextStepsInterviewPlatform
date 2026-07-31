@@ -3,59 +3,62 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Flame, MessageSquare, Star } from 'lucide-react';
 
-import {
-  getInterviewDashboardStats,
-  INTERVIEW_FEEDBACK_UPDATED_EVENT,
-  type InterviewDashboardStats,
-} from '@/lib/services/interview-feedback';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { getDashboardStats, type DashboardStatsResponse } from '@/lib/services/interview-assistant';
 
-const emptyStats: InterviewDashboardStats = {
+type DashboardStats = {
+  interviewsCompleted: number;
+  questionsAnswered: number;
+  averageFeedbackScore?: number;
+  practiceStreakDays: number;
+};
+
+const emptyStats: DashboardStats = {
   interviewsCompleted: 0,
   questionsAnswered: 0,
   practiceStreakDays: 0,
 };
+
+function mapDashboardStats(stats: DashboardStatsResponse): DashboardStats {
+  return {
+    interviewsCompleted: stats.interviews_completed,
+    questionsAnswered: stats.questions_answered,
+    averageFeedbackScore: stats.average_feedback_score ?? undefined,
+    practiceStreakDays: stats.practice_streak_days,
+  };
+}
 
 function formatStreak(days: number) {
   return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
 
 export function StatsSection() {
-  const [dashboardStats, setDashboardStats] = useState<InterviewDashboardStats>(emptyStats);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>(emptyStats);
 
   useEffect(() => {
     let isMounted = true;
-    const supabase = createSupabaseBrowserClient();
 
     async function refreshStats() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!isMounted) return;
-
-      setDashboardStats(user?.id ? getInterviewDashboardStats(user.id) : emptyStats);
+      try {
+        const stats = await getDashboardStats();
+        if (isMounted) {
+          setDashboardStats(mapDashboardStats(stats));
+        }
+      } catch {
+        if (isMounted) {
+          setDashboardStats(emptyStats);
+        }
+      }
     }
 
     void refreshStats();
 
     const handleRefresh = () => void refreshStats();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void refreshStats();
-    });
 
-    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
-    window.addEventListener('storage', handleRefresh);
     window.addEventListener('focus', handleRefresh);
     document.addEventListener('visibilitychange', handleRefresh);
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
-      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
-      window.removeEventListener('storage', handleRefresh);
       window.removeEventListener('focus', handleRefresh);
       document.removeEventListener('visibilitychange', handleRefresh);
     };

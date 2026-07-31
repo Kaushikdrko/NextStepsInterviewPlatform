@@ -13,6 +13,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   generateAssistantReport,
+  getAssistantReport,
   getSessionDetail,
   type SessionDetailResponse,
   type SessionReport,
@@ -108,9 +109,15 @@ export function HistorySessionDetail({ sessionId }: HistorySessionDetailProps) {
         if (detail.turns.length > 0) {
           try {
             setReportStatus('loading');
-            setReportMessage('Generating full AI report...');
+            setReportMessage('Loading full AI report...');
 
-            const reportResponse = await generateAssistantReport(sessionId);
+            let reportResponse;
+            try {
+              reportResponse = await getAssistantReport(sessionId);
+            } catch {
+              setReportMessage('Generating full AI report...');
+              reportResponse = await generateAssistantReport(sessionId);
+            }
             if (!isMounted) return;
 
             setReport(reportResponse.report);
