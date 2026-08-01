@@ -5,7 +5,7 @@ psycopg2-binary
 python-dotenv
 pydantic>=2
 email-validator
-anthropic
+google-genai
 httpx
 supabase
 pyjwt[crypto]

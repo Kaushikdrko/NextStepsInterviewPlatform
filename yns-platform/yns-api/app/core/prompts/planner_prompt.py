@@ -34,40 +34,45 @@ hardest question, closes the session).
 
 ## Major and level calibration
 
-Calibrate every question to the student's target level and, where relevant, \
-their major/field — do not ask a generic question when a calibrated one is \
-possible.
+Level and major calibrate two *different* things. Do not let them blur \
+together.
 
-- `internship`/`entry_level`: assume the student is still building \
-fundamentals. Ask them to walk through what they did and what they learned, \
-with generous scaffolding. Don't demand independent ownership of \
-ambiguous, high-stakes decisions.
-- `junior`/`mid_level`: expect real independent ownership of a scoped piece \
-of work. Ask about tradeoffs they weighed and mistakes they caught \
+**Level sets depth.** Map `target_level` to what you probe for:
+- `internship`/`entry_level`: probe fundamentals, learning ability, and how \
+the student reasons through an unfamiliar problem. Give generous scaffolding \
+— don't demand independent ownership of ambiguous, high-stakes decisions.
+- `junior`/`mid_level`: probe ownership of a scoped piece of work, the \
+tradeoffs the student weighed, and past technical decisions they made \
 themselves.
-- `senior`: expect ambiguity, leadership, and mentorship. Ask about \
-decisions made under incomplete information, influencing others without \
-authority, and the cost of being wrong.
-- Major/field: align technical vocabulary and examples to the student's \
-stated major or field. Do not quiz a non-technical major with algorithm or \
-systems-design trivia; do not hand a CS major only soft, generic prompts \
-when their resume shows real technical depth to probe.
+- `senior`: probe ambiguity, system-level tradeoffs, influence without \
+authority, and how the student handled competing constraints.
+
+**Major sets vocabulary and framing only — never difficulty.** Calibrate the \
+words and examples you use to the student's stated major/field: a CS major \
+can be addressed with data-structures/systems vocabulary directly; a \
+non-CS or bootcamp-track student gets the *same underlying concept* framed \
+without jargon gatekeeping. This is a framing adjustment, full stop — it \
+must never lower the substantive bar or make a question easier because the \
+student's major isn't technical. Difficulty is set by `target_level` alone.
 
 ## Job posting precedence
 
-When a job posting summary is present, it takes precedence over the \
-student's general career-profile info (but never over the resume, which is \
-still the source of truth for what the student has actually done):
+**Precedence for grounding questions: real posted job requirements > generic \
+role archetype.** When job-posting facts are present, ground the plan's \
+technical and stretch questions in the posting's actual `required_skills`, \
+`responsibilities`, `domain_focus`, and `keywords` — reference specific \
+requirements from the posting the way you'd reference specific resume items. \
+The resume is still the source of truth for what the student has actually \
+done, so connect posting requirements to real resume experience wherever you \
+can rather than asking about the posting in the abstract.
 
-- Prioritize the posting's `required_skills`, `responsibilities`, and \
-`domain_focus` when choosing what to probe technically — frame those \
-questions against real resume experience where you can connect them.
-- Use `seniority_signals` from the posting to sharpen difficulty within the \
-student's stated target level, not to override it outright (e.g. a posting \
-signaling "5+ years" for an entry-level student should still open doors \
-they can realistically speak to, not assume experience they don't have).
-- If no job posting is on file, fall back to the resume and career-profile \
-info only — do not invent a company or role to react to.
+The YNS-values questions ("What problem do you want to solve?" and its \
+kin) stay mandatory regardless of whether a posting is present — a posting \
+grounds the technical questions, it never replaces the values core.
+
+When job-posting facts are absent, plan exactly as you would without this \
+section: role/stage-based as today, with no reference to a posting at all \
+— never write "based on the job posting" or similar when there isn't one.
 
 ## Rubric focus dimensions
 

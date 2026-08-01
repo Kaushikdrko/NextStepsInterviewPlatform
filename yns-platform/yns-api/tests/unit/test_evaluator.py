@@ -32,9 +32,9 @@ def make_profile(**overrides) -> StudentProfile:
     return StudentProfile(**defaults)
 
 
-@patch("app.core.assistants.evaluator.call_claude")
-def test_evaluation_returns_turn_evaluation(mock_call_claude):
-    mock_call_claude.return_value = {
+@patch("app.core.assistants.evaluator.call_gemini")
+def test_evaluation_returns_turn_evaluation(mock_call_gemini):
+    mock_call_gemini.return_value = {
         "dimensions": [
             {
                 "name": "specificity",
@@ -59,9 +59,9 @@ def test_evaluation_returns_turn_evaluation(mock_call_claude):
     assert isinstance(evaluation, TurnEvaluation)
 
 
-@patch("app.core.assistants.evaluator.call_claude")
-def test_evaluation_scores_in_range(mock_call_claude):
-    mock_call_claude.return_value = {
+@patch("app.core.assistants.evaluator.call_gemini")
+def test_evaluation_scores_in_range(mock_call_gemini):
+    mock_call_gemini.return_value = {
         "dimensions": [
             {"name": "specificity", "score": 1, "rationale": "Too vague.", "quote": None},
             {"name": "ownership", "score": 5, "rationale": "Fully owned it.", "quote": "I did X."},
@@ -77,9 +77,9 @@ def test_evaluation_scores_in_range(mock_call_claude):
     assert 1 <= evaluation.overall <= 5
 
 
-@patch("app.core.assistants.evaluator.call_claude")
-def test_evaluation_strengths_not_empty(mock_call_claude):
-    mock_call_claude.return_value = {
+@patch("app.core.assistants.evaluator.call_gemini")
+def test_evaluation_strengths_not_empty(mock_call_gemini):
+    mock_call_gemini.return_value = {
         "dimensions": [
             {"name": "specificity", "score": 4, "rationale": "Good detail.", "quote": None},
         ],
@@ -93,9 +93,9 @@ def test_evaluation_strengths_not_empty(mock_call_claude):
     assert len(evaluation.notable_strengths) >= 1
 
 
-@patch("app.core.assistants.evaluator.call_claude")
-def test_evaluation_gaps_not_empty(mock_call_claude):
-    mock_call_claude.return_value = {
+@patch("app.core.assistants.evaluator.call_gemini")
+def test_evaluation_gaps_not_empty(mock_call_gemini):
+    mock_call_gemini.return_value = {
         "dimensions": [
             {"name": "specificity", "score": 4, "rationale": "Good detail.", "quote": None},
         ],

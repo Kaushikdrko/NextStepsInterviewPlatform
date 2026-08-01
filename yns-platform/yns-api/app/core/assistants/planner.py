@@ -1,47 +1,7 @@
 from app.core.prompts.planner_prompt import PLANNER_SYSTEM, build_planner_prompt
 from app.core.schemas.session import SessionPlan
 from app.core.schemas.student import StudentProfile
-from app.services.anthropic_client import call_claude
-
-SUBMIT_SESSION_PLAN_TOOL = {
-    "name": "submit_session_plan",
-    "description": "Submit the planned interview session with all questions.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "session_type": {
-                "type": "string",
-                "enum": ["behavioral", "technical", "mixed", "resume"],
-            },
-            "questions": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "id": {"type": "string"},
-                        "category": {
-                            "type": "string",
-                            "enum": ["behavioral", "technical", "values"],
-                        },
-                        "difficulty": {
-                            "type": "string",
-                            "enum": ["warmup", "core", "stretch"],
-                        },
-                        "text": {"type": "string"},
-                        "intent": {"type": "string"},
-                        "rubric_focus": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                    "required": ["id", "category", "difficulty", "text", "intent"],
-                },
-            },
-            "target_minutes": {"type": "integer"},
-        },
-        "required": ["session_type", "questions"],
-    },
-}
+from app.services.gemini_client import call_gemini
 
 
 def _summarize_resume(student_profile: StudentProfile) -> str:
@@ -103,10 +63,9 @@ def plan_session(
         n_questions=n_questions,
     )
 
-    raw = call_claude(
-        messages=[{"role": "user", "content": prompt}],
+    raw = call_gemini(
+        contents=prompt,
         system=PLANNER_SYSTEM,
-        tools=[SUBMIT_SESSION_PLAN_TOOL],
         response_model=SessionPlan,
     )
 
