@@ -3,14 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 
-import {
-  getWeeklyPracticeProgress,
-  INTERVIEW_FEEDBACK_UPDATED_EVENT,
-  type WeeklyPracticeProgressItem,
-} from '@/lib/services/interview-feedback';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { getWeeklyProgress, type WeeklyProgressItem } from '@/lib/services/interview-assistant';
 
-const emptyWeeklyProgress: WeeklyPracticeProgressItem[] = [
+const emptyWeeklyProgress: WeeklyProgressItem[] = [
   { day: 'Mon', questions: 0 },
   { day: 'Tue', questions: 0 },
   { day: 'Wed', questions: 0 },
@@ -34,41 +29,33 @@ function getPoint(index: number, questions: number, totalDays: number, maxQuesti
 }
 
 export function PracticeProgressGraph() {
-  const [weeklyProgress, setWeeklyProgress] = useState<WeeklyPracticeProgressItem[]>(emptyWeeklyProgress);
+  const [weeklyProgress, setWeeklyProgress] = useState<WeeklyProgressItem[]>(emptyWeeklyProgress);
 
   useEffect(() => {
     let isMounted = true;
-    const supabase = createSupabaseBrowserClient();
 
     async function refreshProgress() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!isMounted) return;
-
-      setWeeklyProgress(user?.id ? getWeeklyPracticeProgress(user.id) : emptyWeeklyProgress);
+      try {
+        const progress = await getWeeklyProgress();
+        if (isMounted) {
+          setWeeklyProgress(progress.items);
+        }
+      } catch {
+        if (isMounted) {
+          setWeeklyProgress(emptyWeeklyProgress);
+        }
+      }
     }
 
     void refreshProgress();
 
     const handleRefresh = () => void refreshProgress();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void refreshProgress();
-    });
 
-    window.addEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
-    window.addEventListener('storage', handleRefresh);
     window.addEventListener('focus', handleRefresh);
     document.addEventListener('visibilitychange', handleRefresh);
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
-      window.removeEventListener(INTERVIEW_FEEDBACK_UPDATED_EVENT, handleRefresh);
-      window.removeEventListener('storage', handleRefresh);
       window.removeEventListener('focus', handleRefresh);
       document.removeEventListener('visibilitychange', handleRefresh);
     };
@@ -107,8 +94,8 @@ export function PracticeProgressGraph() {
         <svg className="h-[230px] w-full" viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`} role="img" aria-label="Practice progress chart">
           <defs>
             <linearGradient id="practice-progress-area" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+              <stop offset="0%" stopColor="#ffcc3d" stopOpacity="0.26" />
+              <stop offset="100%" stopColor="#ffcc3d" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -119,11 +106,11 @@ export function PracticeProgressGraph() {
           })}
 
           <path d={areaPath} fill="url(#practice-progress-area)" />
-          <path d={linePath} fill="none" stroke="#4f46e5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+          <path d={linePath} fill="none" stroke="#a92712" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
 
           {points.map((point, index) => (
             <g key={weeklyProgress[index].day}>
-              <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#4f46e5" strokeWidth="3" />
+              <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#a92712" strokeWidth="3" />
               <text x={point.x} y={chartHeight + 16} textAnchor="middle" className="fill-slate-500 text-[12px] font-bold">
                 {weeklyProgress[index].day}
               </text>
@@ -133,7 +120,7 @@ export function PracticeProgressGraph() {
 
         <div className="flex items-center justify-center border-t border-slate-200 pt-4 text-center text-sm font-semibold text-slate-500">
           {totalQuestions > 0
-            ? 'Your weekly progress reflects completed interview sessions from this browser.'
+            ? 'Your weekly progress reflects questions answered this week.'
             : 'Your progress will update here once you start completing practice questions.'}
         </div>
       </div>

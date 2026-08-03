@@ -1,215 +1,116 @@
-// Shared TypeScript models for the Champion Dashboard.
-// These mirror the Pydantic schemas in yns-api/app/api/champion/models.py so the
-// mock service can later be swapped for real FastAPI responses with no UI changes.
+// Champion Dashboard models. These mirror the Pydantic schemas in
+// yns-api/app/api/champion/models.py, which serialize in camelCase.
 
-export type StudentStatus = 'on_track' | 'excellent' | 'watch' | 'needs_help' | 'not_started';
+export type ActivityStatus = 'all' | 'active' | 'inactive' | 'never_started';
 
-export type GoalType = 'internship' | 'job' | 'college' | 'scholarship';
+export type DashboardRange = '7d' | '30d' | 'school_year' | 'all_time';
 
-export type EducationLevel = 'high_school' | 'college' | 'recent_grad';
+export type StudentSortField =
+  | 'fullName'
+  | 'questionsAnswered'
+  | 'interviewsCompleted'
+  | 'practiceTime';
 
-export type InterviewPurpose = GoalType;
+export type SortOrder = 'asc' | 'desc';
 
-export type QuestionMode = 'behavioral' | 'technical' | 'situational' | 'mixed';
-
-export type ReviewStatus = 'pending' | 'reviewed' | 'needs_follow_up';
-
-export type SkillName =
-  | 'Communication'
-  | 'Confidence'
-  | 'Response Structure'
-  | 'Technical Knowledge'
-  | 'Problem Solving'
-  | 'Leadership'
-  | 'Time Management'
-  | 'Professionalism';
-
-export type SkillStatus = 'strong' | 'good' | 'needs_practice' | 'needs_help';
-
-export type NoteVisibility = 'student_visible' | 'private';
-
-export type NoteCategory =
-  | 'general'
-  | 'interview_feedback'
-  | 'encouragement'
-  | 'practice_assignment'
-  | 'follow_up';
-
-export type AssignmentStatus = 'assigned' | 'in_progress' | 'completed' | 'overdue' | 'cancelled';
-
-export type FocusSkill = SkillName;
-
-export type MeetingStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
-
-export type MeetingType = 'interview_prep' | 'scholarship_guidance' | 'career_question' | 'general' | 'mock_interview';
-
-export interface StudentSummary {
+export interface ChampionProfile {
   id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  fullName: string;
+  email: string | null;
+  roleLabel: string;
+}
+
+export interface ChampionStudentListItem {
+  id: string;
+  fullName: string;
+  questionsAnswered: number;
+  interviewsCompleted: number;
+  practiceTimeSeconds: number;
+}
+
+export interface ChampionStudentDetails {
+  id: string;
+  fullName: string;
   school: string | null;
-  educationLevel: EducationLevel;
-  year: string | null;
-  fieldPursuing: string | null;
-  goalType: GoalType;
-  latestScore: number | null;
-  readinessScore: number | null;
-  lastPracticeDate: string | null;
-  completedInterviews: number;
-  status: StudentStatus;
-}
-
-export interface StudentDetail extends StudentSummary {
+  gradeOrYear: string | null;
+  studentType: string | null;
+  email: string | null;
   phone: string | null;
-  gpa: number | null;
-  resumeUploaded: boolean;
-  resumeUrl: string | null;
-  resumeLastUpdated: string | null;
-  assignedChampionName: string;
-  averageScore: number | null;
-  totalPracticeMinutes: number;
-  lastInterviewDate: string | null;
-  upcomingMeetingDate: string | null;
-  scoreTrend: ScoreTrendPoint[];
-  skills: SkillScore[];
+  questionsAnswered: number;
+  interviewsCompleted: number;
+  practiceTimeSeconds: number;
 }
 
-export interface ScoreTrendPoint {
-  date: string;
-  score: number;
+export interface ChampionStudentListResponse {
+  students: ChampionStudentListItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
 }
 
-export interface SkillScore {
-  skill: SkillName;
-  score: number;
-  status: SkillStatus;
-  recommendation: string;
+export interface ChampionStudentQuery {
+  search: string;
+  status: ActivityStatus;
+  range: DashboardRange;
+  sortBy: StudentSortField;
+  sortOrder: SortOrder;
+  page: number;
+  pageSize: number;
 }
 
-export interface AttentionAlert {
-  id: string;
-  studentId: string;
-  studentName: string;
-  reason: string;
-  status: StudentStatus;
+export const DEFAULT_RANGE: DashboardRange = '30d';
+export const DEFAULT_STATUS: ActivityStatus = 'all';
+export const DEFAULT_SORT_BY: StudentSortField = 'fullName';
+export const DEFAULT_SORT_ORDER: SortOrder = 'asc';
+export const DEFAULT_PAGE_SIZE = 25;
+
+export const RANGE_OPTIONS: ReadonlyArray<{ value: DashboardRange; label: string }> = [
+  { value: '7d', label: '7 Days' },
+  { value: '30d', label: '30 Days' },
+  { value: 'school_year', label: 'School Year' },
+  { value: 'all_time', label: 'All Time' },
+];
+
+export const STATUS_OPTIONS: ReadonlyArray<{ value: ActivityStatus; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'never_started', label: 'Never Started' },
+];
+
+const RANGE_VALUES = RANGE_OPTIONS.map((option) => option.value);
+const STATUS_VALUES = STATUS_OPTIONS.map((option) => option.value);
+const SORT_FIELDS: StudentSortField[] = [
+  'fullName',
+  'questionsAnswered',
+  'interviewsCompleted',
+  'practiceTime',
+];
+
+// The dashboard reads its state out of the URL, which anyone can edit. Fall back
+// to the default rather than sending a value the API would reject with a 422.
+export function parseRange(value: string | null): DashboardRange {
+  return RANGE_VALUES.includes(value as DashboardRange) ? (value as DashboardRange) : DEFAULT_RANGE;
 }
 
-export interface ActivityItem {
-  id: string;
-  studentId: string;
-  studentName: string;
-  interviewPurpose: InterviewPurpose;
-  questionMode: QuestionMode;
-  score: number | null;
-  date: string;
-  reviewStatus: ReviewStatus;
+export function parseStatus(value: string | null): ActivityStatus {
+  return STATUS_VALUES.includes(value as ActivityStatus)
+    ? (value as ActivityStatus)
+    : DEFAULT_STATUS;
 }
 
-export interface DashboardSummary {
-  assignedStudentsCount: number;
-  interviewsCompletedCount: number;
-  studentsNeedingHelpCount: number;
-  overallReadinessScore: number | null;
-  pendingReviewsCount: number;
-  upcomingMeetingsCount: number;
-  assignmentsDueCount: number;
+export function parseSortBy(value: string | null): StudentSortField {
+  return SORT_FIELDS.includes(value as StudentSortField)
+    ? (value as StudentSortField)
+    : DEFAULT_SORT_BY;
 }
 
-export interface InterviewReview {
-  id: string;
-  studentId: string;
-  studentName: string;
-  interviewPurpose: InterviewPurpose;
-  questionMode: QuestionMode;
-  date: string;
-  score: number | null;
-  status: 'completed' | 'in_progress' | 'abandoned';
-  reviewStatus: ReviewStatus;
+export function parseSortOrder(value: string | null): SortOrder {
+  return value === 'desc' ? 'desc' : DEFAULT_SORT_ORDER;
 }
 
-export interface InterviewReviewDetail extends InterviewReview {
-  questions: string[];
-  transcriptSummary: string;
-  feedbackSummary: string;
-  scoreBreakdown: { label: string; score: number }[];
-  strengths: string[];
-  improvementAreas: string[];
-  recommendedNextPractice: string;
-  championReviewNotes: string | null;
-}
-
-export interface ChampionNote {
-  id: string;
-  studentId: string;
-  studentName: string;
-  championName: string;
-  content: string;
-  visibility: NoteVisibility;
-  category: NoteCategory;
-  createdAt: string;
-  updatedAt: string | null;
-}
-
-export interface CreateNoteInput {
-  studentId: string;
-  content: string;
-  visibility: NoteVisibility;
-  category: NoteCategory;
-}
-
-export interface PracticeAssignment {
-  id: string;
-  studentId: string;
-  studentName: string;
-  interviewPurpose: InterviewPurpose;
-  questionMode: QuestionMode;
-  focusSkill: FocusSkill;
-  resumeBased: boolean;
-  dueDate: string | null;
-  instructions: string;
-  status: AssignmentStatus;
-  createdAt: string;
-}
-
-export interface CreateAssignmentInput {
-  studentId: string;
-  interviewPurpose: InterviewPurpose;
-  questionMode: QuestionMode;
-  focusSkill: FocusSkill;
-  resumeBased: boolean;
-  dueDate: string | null;
-  instructions: string;
-}
-
-export interface Meeting {
-  id: string;
-  studentId: string;
-  studentName: string;
-  title: string;
-  meetingType: MeetingType;
-  startTime: string;
-  endTime: string;
-  status: MeetingStatus;
-  meetingUrl: string | null;
-}
-
-export interface ChampionSettings {
-  firstName: string;
-  lastName: string;
-  displayName: string;
-  email: string;
-  phone: string | null;
-  title: string;
-  organization: string | null;
-  expertiseAreas: string[];
-  bio: string;
-  timezone: string;
-  profileImageUrl: string | null;
-  calendlyUrl: string | null;
-  availabilityNote: string | null;
-  notifyCompletedInterviews: boolean;
-  notifyStudentNotes: boolean;
-  notifyScheduledMeetings: boolean;
-  alertStudentsNeedingHelp: boolean;
+export function parsePage(value: string | null): number {
+  const page = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(page) && page >= 1 ? page : 1;
 }

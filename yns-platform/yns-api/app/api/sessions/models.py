@@ -37,10 +37,27 @@ class SessionSummary(BaseModel):
     question_count: int
     answered_count: int
     average_rating: float | None
+    duration_minutes: int | None = None
 
 
 class SessionListResponse(BaseModel):
     sessions: list[SessionSummary]
+
+
+class DashboardStatsResponse(BaseModel):
+    interviews_completed: int
+    questions_answered: int
+    average_feedback_score: int | None = None
+    practice_streak_days: int
+
+
+class WeeklyProgressItem(BaseModel):
+    day: str
+    questions: int
+
+
+class WeeklyProgressResponse(BaseModel):
+    items: list[WeeklyProgressItem]
 
 
 class SessionTurnDetail(BaseModel):
@@ -53,6 +70,7 @@ class SessionTurnDetail(BaseModel):
 class SessionDetailResponse(BaseModel):
     session_id: str
     session_type: str
+    started_at: datetime
     status: str
     created_at: datetime
     completed_at: datetime | None

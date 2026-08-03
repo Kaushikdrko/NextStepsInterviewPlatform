@@ -141,7 +141,7 @@ export function AuthFormCard({
       }
 
       persistSessionForServer(data.session);
-      const { redirectTo, error: redirectError } = await getPostLoginRedirect(data.user.id, supabase);
+      const { redirectTo, error: redirectError } = await getPostLoginRedirect(data.user.id, supabase, data.user);
 
       if (redirectError) {
         setError(redirectError);
@@ -194,16 +194,16 @@ export function AuthFormCard({
   return (
     <div className="w-full max-w-lg space-y-6">
       <div className="space-y-4">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff4ef] text-[#a92712]">
           <Icon className="h-6 w-6" aria-hidden="true" />
         </span>
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950">{title}</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[#8f200f]">{title}</h1>
           <p className="text-lg font-medium text-slate-500">{subtitle}</p>
         </div>
       </div>
 
-      <Card className="rounded-3xl border-slate-200 bg-white shadow-sm">
+      <Card className="rounded-3xl border-[#f8bfa9] bg-white shadow-sm">
         <CardContent className="space-y-5 p-6 sm:p-7">
           {message ? <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">{message}</Alert> : null}
           {error ? <Alert className="border-rose-200 bg-rose-50 text-rose-700">{error}</Alert> : null}
@@ -237,7 +237,7 @@ export function AuthFormCard({
                 <div className="flex flex-col gap-3 text-sm font-bold sm:flex-row sm:items-center sm:justify-between">
                   <button
                     type="button"
-                    className="text-left text-indigo-600 hover:text-indigo-700"
+                    className="text-left text-[#a92712] hover:text-[#8f200f]"
                     onClick={handleResendCode}
                     disabled={isSubmitting}
                   >
@@ -272,7 +272,7 @@ export function AuthFormCard({
                   icon={<LockKeyhole className="h-5 w-5" aria-hidden="true" />}
                   action={
                     mode === 'sign-in' ? (
-                      <button type="button" className="text-sm font-bold text-indigo-600 hover:text-indigo-700">
+                      <button type="button" className="text-sm font-bold text-[#a92712] hover:text-[#8f200f]">
                         Forgot password?
                       </button>
                     ) : null
@@ -312,7 +312,7 @@ export function AuthFormCard({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="h-12 w-full rounded-xl bg-indigo-700 text-sm font-bold text-white shadow-sm hover:bg-indigo-800"
+              className="h-12 w-full rounded-xl bg-[#a92712] text-sm font-bold text-white shadow-sm hover:bg-[#8f200f]"
             >
               {isSubmitting ? 'Please wait...' : isOtpStep ? 'Verify code' : submitLabel}
             </Button>
@@ -323,7 +323,7 @@ export function AuthFormCard({
       {!isOtpStep ? (
         <p className="text-center text-base font-semibold text-slate-500">
           {footerText}{' '}
-          <Link href={footerHref} className="font-bold text-indigo-700 hover:text-indigo-800">
+          <Link href={footerHref} className="font-bold text-[#a92712] hover:text-[#8f200f]">
             {footerLinkText}
           </Link>
         </p>

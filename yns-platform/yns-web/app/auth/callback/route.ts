@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { redirectTo } = data.user
-    ? await getPostLoginRedirect(data.user.id, supabase)
+    ? await getPostLoginRedirect(data.user.id, supabase, data.user)
     : { redirectTo: "/onboarding" };
 
   const response = NextResponse.redirect(new URL(redirectTo, requestUrl.origin));

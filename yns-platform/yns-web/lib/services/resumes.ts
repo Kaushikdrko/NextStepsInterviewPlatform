@@ -33,7 +33,7 @@ function shouldParseResumeFile(file: File) {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 }
 
-async function parseUploadedResume(file: File, accessToken?: string) {
+async function parseUploadedResume(file: File, resumeId: string, accessToken?: string) {
   if (!shouldParseResumeFile(file)) {
     return {
       parseStatus: 'skipped' as const,
@@ -52,8 +52,10 @@ async function parseUploadedResume(file: File, accessToken?: string) {
     const response = await fetch(`${API_BASE_URL}/api/resume/parse`, {
       method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
+      body: JSON.stringify({ resume_id: resumeId }),
     });
 
     if (!response.ok) {
@@ -131,7 +133,7 @@ export async function uploadResume(file: File, options?: UploadResumeOptions): P
     }
 
     options?.onStatusChange?.('analyzing');
-    const parseResult = await parseUploadedResume(file, session?.access_token);
+    const parseResult = await parseUploadedResume(file, savedResume.id, session?.access_token);
 
     return { success: true, fileName: file.name, ...parseResult };
   } catch (error) {

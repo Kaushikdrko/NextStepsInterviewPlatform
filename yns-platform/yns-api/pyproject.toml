@@ -1,4 +1,8 @@
 [tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
 markers = [
     "integration: real Claude API calls, run with `pytest -m integration`",
+    "database: real PostgreSQL, run with CHAMPION_TEST_DATABASE_URL set",
 ]

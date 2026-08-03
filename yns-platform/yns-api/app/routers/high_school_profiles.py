@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_student, require_admin_user, require_user_ownership
 from app.models import CareerProfile
 from app.schemas.high_school_profile import HighSchoolProfileResponse
 
@@ -9,7 +10,10 @@ router = APIRouter(prefix="/high-school-profiles", tags=["high school profiles"]
 
 
 @router.get("", response_model=list[HighSchoolProfileResponse])
-def list_high_school_profiles(db: Session = Depends(get_db)):
+def list_high_school_profiles(
+    _admin_user_id: str = Depends(require_admin_user),
+    db: Session = Depends(get_db),
+):
     profiles = (
         db.query(CareerProfile)
         .filter(CareerProfile.grade_level.isnot(None))
@@ -21,7 +25,12 @@ def list_high_school_profiles(db: Session = Depends(get_db)):
 
 
 @router.get("/user/{user_id}", response_model=HighSchoolProfileResponse)
-def get_high_school_profile_for_user(user_id: str, db: Session = Depends(get_db)):
+def get_high_school_profile_for_user(
+    user_id: str,
+    current_user_id: str = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    require_user_ownership(user_id, current_user_id)
     profile = (
         db.query(CareerProfile)
         .filter(CareerProfile.user_id == user_id)

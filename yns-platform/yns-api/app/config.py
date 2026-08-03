@@ -19,7 +19,17 @@ class Settings:
     @property
     def cors_origins(self) -> list[str]:
         origins = [origin.strip() for origin in self.frontend_url.split(",") if origin.strip()]
-        return origins or ["http://localhost:3000"]
+        if any("localhost" in origin or "127.0.0.1" in origin for origin in origins):
+            origins.extend(
+                [
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                    "http://localhost:3001",
+                    "http://127.0.0.1:3001",
+                ]
+            )
+
+        return sorted(set(origins)) or ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
 settings = Settings()

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, ArrowRight, BookOpen, BriefcaseBusiness, Building2, CheckCircle2, ClipboardCheck, FileText, GraduationCap, Target, User, XCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, BriefcaseBusiness, Building2, CheckCircle2, ClipboardCheck, FileText, GraduationCap, Loader2, Target, User, XCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 
@@ -34,6 +34,76 @@ import type { OnboardingFormValues, OnboardingSubmission, UserType } from '@/typ
 
 type FieldName = keyof OnboardingFormValues;
 
+type SubmitProgressStep = {
+  title: string;
+  description: string;
+};
+
+function SubmitProgressStatus({
+  currentIndex,
+  steps,
+}: {
+  currentIndex: number;
+  steps: SubmitProgressStep[];
+}) {
+  const activeStep = steps[currentIndex] ?? steps[0];
+  const progress = Math.round(((currentIndex + 1) / steps.length) * 100);
+
+  return (
+    <Alert
+      role="status"
+      aria-live="polite"
+      className="rounded-2xl border-[#f0c5b8] bg-[#fff7f3] px-5 py-4 text-[#5f2b22]"
+    >
+      <div className="flex gap-4">
+        <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#a83223] text-white">
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <p className="text-base font-bold text-[#3b241f]">{activeStep.title}</p>
+            <p className="mt-1 text-sm font-medium text-[#7a5d55]">{activeStep.description}</p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[#f2ddd6]">
+            <div
+              className="h-full rounded-full bg-[#a83223] transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {steps.map((step, index) => {
+              const isDone = index < currentIndex;
+              const isActive = index === currentIndex;
+
+              return (
+                <div
+                  key={step.title}
+                  className="flex min-w-0 items-center gap-2 text-xs font-bold"
+                >
+                  <span
+                    className={
+                      isDone
+                        ? 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700'
+                        : isActive
+                          ? 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#a83223] text-white'
+                          : 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f2ddd6] text-[#9a7f77]'
+                    }
+                  >
+                    {isDone ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
+                  </span>
+                  <span className={isActive ? 'truncate text-[#3b241f]' : 'truncate text-[#8a7169]'}>
+                    {step.title}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </Alert>
+  );
+}
+
 export function OnboardingForm() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -41,6 +111,7 @@ export function OnboardingForm() {
   const [submission, setSubmission] = useState<OnboardingSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitProgressIndex, setSubmitProgressIndex] = useState(0);
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingSchema),
@@ -148,6 +219,51 @@ export function OnboardingForm() {
   };
 
   const canContinue = isCurrentStepComplete(watchedValues);
+  const submitProgressSteps = useMemo(() => {
+    const steps: SubmitProgressStep[] = [
+      {
+        title: 'Checking your details',
+        description: 'Making sure your onboarding answers are ready to save.',
+      },
+      {
+        title: 'Saving your profile',
+        description: 'Updating your account, goals, skills, and interview preferences.',
+      },
+    ];
+
+    if (isCollegeFlow && watchedHasJobPosting) {
+      steps.push({
+        title: 'Saving job details',
+        description: 'Adding the job posting context for tailored interview practice.',
+      });
+    }
+
+    if (watchedValues.resume_file && hasValidResumeFile(watchedValues.resume_file)) {
+      steps.push({
+        title: 'Uploading your resume',
+        description: 'Saving your resume and preparing it for resume-based questions.',
+      });
+    }
+
+    steps.push({
+      title: 'Finishing setup',
+      description: 'Marking onboarding complete and opening your dashboard.',
+    });
+
+    return steps;
+  }, [isCollegeFlow, watchedHasJobPosting, watchedValues.resume_file]);
+
+  const activeSubmitStep = submitProgressSteps[submitProgressIndex] ?? submitProgressSteps[0];
+
+  useEffect(() => {
+    if (!isSubmitting) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      setSubmitProgressIndex((currentIndex) => Math.min(currentIndex + 1, submitProgressSteps.length - 1));
+    }, 1200);
+
+    return () => window.clearInterval(intervalId);
+  }, [isSubmitting, submitProgressSteps.length]);
 
   const validateCurrentStep = () => {
     const values = form.getValues();
@@ -346,17 +462,19 @@ export function OnboardingForm() {
     const finalObject = buildSubmission(values);
 
     setSubmitError(null);
+    setSubmitProgressIndex(0);
     setIsSubmitting(true);
 
     const result = await submitOnboarding(buildSubmissionFormData(finalObject));
 
-    setIsSubmitting(false);
-
     if (!result.success) {
+      setIsSubmitting(false);
+      setSubmitProgressIndex(0);
       setSubmitError(result.error ?? 'Unable to submit onboarding.');
       return;
     }
 
+    setSubmitProgressIndex(submitProgressSteps.length - 1);
     setSubmission(finalObject);
     setCompleted(true);
     router.push('/dashboard');
@@ -639,6 +757,9 @@ export function OnboardingForm() {
                           {submitError}
                         </Alert>
                       ) : null}
+                      {isSubmitting ? (
+                        <SubmitProgressStatus currentIndex={submitProgressIndex} steps={submitProgressSteps} />
+                      ) : null}
                     </section>
                   ) : null}
 
@@ -674,7 +795,8 @@ export function OnboardingForm() {
                   disabled={isSubmitting}
                   className="h-11 w-full gap-2 rounded-xl bg-indigo-500 px-6 text-base font-bold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-600 sm:w-auto"
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit onboarding'}
+                  {isSubmitting ? activeSubmitStep.title : 'Submit onboarding'}
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                   {!isSubmitting ? <ArrowRight className="h-4 w-4" aria-hidden="true" /> : null}
                 </Button>
               )}

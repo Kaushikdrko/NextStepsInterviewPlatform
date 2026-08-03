@@ -12,9 +12,15 @@ import { FeedbackSummaryCard } from '@/components/practice/FeedbackSummaryCard';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { generateAssistantReport, type SessionReport } from '@/lib/services/interview-assistant';
-import { getInterviewFeedbackSession, type InterviewFeedbackSession } from '@/lib/services/interview-feedback';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import {
+  generateAssistantReport,
+  getAssistantReport,
+  getSessionDetail,
+  type InterviewFeedbackItem,
+  type InterviewFeedbackSession,
+  type SessionDetailResponse,
+  type SessionReport,
+} from '@/lib/services/interview-assistant';
 
 type PageStatus = 'loading' | 'ready' | 'empty' | 'error' | 'unauthorized';
 
@@ -30,6 +36,75 @@ function formatDate(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatSessionType(value: string) {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function getMostCommon(items: string[]) {
+  if (items.length === 0) return undefined;
+
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    counts.set(item, (counts.get(item) ?? 0) + 1);
+  }
+
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+function getTotalTimeSeconds(session: SessionDetailResponse) {
+  const startedAt = new Date(session.started_at).getTime();
+  const endedAt = new Date(session.completed_at ?? session.created_at).getTime();
+  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt <= startedAt) {
+    return 0;
+  }
+
+  return Math.round((endedAt - startedAt) / 1000);
+}
+
+function mapSessionDetailToFeedback(session: SessionDetailResponse): InterviewFeedbackSession {
+  const items = session.turns.map<InterviewFeedbackItem>((turn) => {
+    const evaluation = turn.evaluation;
+    const score = evaluation ? Math.round((evaluation.overall / 5) * 100) : undefined;
+    const dimensionFeedback =
+      evaluation?.dimensions.map((dimension) => `${dimension.name}: ${dimension.rationale}`) ?? [];
+
+    return {
+      questionId: turn.question.id,
+      questionNumber: turn.turn_index + 1,
+      questionText: turn.question.text,
+      userAnswer: turn.answer_text,
+      aiFeedback: evaluation
+        ? [`Overall score: ${evaluation.overall}/5.`, ...dimensionFeedback].join(' ')
+        : 'No AI feedback was saved for this answer.',
+      score,
+      strengths: evaluation?.notable_strengths ?? [],
+      improvements: evaluation?.notable_gaps ?? [],
+    };
+  });
+  const scoredItems = items.filter((item) => typeof item.score === 'number');
+
+  return {
+    sessionId: session.session_id,
+    mode: session.session_type === 'mixed' ? 'general' : session.session_type,
+    title: `${formatSessionType(session.session_type)} Interview`,
+    completedAt: session.completed_at ?? session.created_at,
+    totalQuestions: items.length,
+    answeredQuestions: items.filter((item) => item.userAnswer.trim().length > 0).length,
+    totalTimeSeconds: getTotalTimeSeconds(session),
+    averageScore:
+      scoredItems.length > 0
+        ? Math.round(scoredItems.reduce((total, item) => total + (item.score ?? 0), 0) / scoredItems.length)
+        : undefined,
+    strongestArea: getMostCommon(items.flatMap((item) => item.strengths)),
+    mainImprovementArea: getMostCommon(items.flatMap((item) => item.improvements)),
+    items,
+  };
 }
 
 function FeedbackState({
@@ -102,43 +177,26 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
         setReportStatus('idle');
         setReportMessage('');
 
-        const supabase = createSupabaseBrowserClient();
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
+        const session = await getSessionDetail(sessionId);
         if (!isMounted) return;
 
-        if (userError || !user?.id) {
-          setStatus('unauthorized');
-          setMessage(userError?.message ?? 'Sign in to view this interview feedback.');
-          return;
-        }
+        const feedbackSession = mapSessionDetailToFeedback(session);
 
-        const savedFeedback = getInterviewFeedbackSession(sessionId);
+        setFeedback(feedbackSession);
+        setStatus(feedbackSession.items.length > 0 ? 'ready' : 'empty');
 
-        if (!savedFeedback) {
-          setStatus('empty');
-          setMessage('No feedback was found for this interview session.');
-          return;
-        }
-
-        if (savedFeedback.userId !== user.id) {
-          setStatus('unauthorized');
-          setMessage('This feedback belongs to a different signed-in user.');
-          return;
-        }
-
-        setFeedback(savedFeedback);
-        setStatus(savedFeedback.items.length > 0 ? 'ready' : 'empty');
-
-        if (savedFeedback.assistantSessionId && savedFeedback.items.length > 0) {
+        if (feedbackSession.items.length > 0) {
           try {
             setReportStatus('loading');
-            setReportMessage('Generating full AI report...');
+            setReportMessage('Loading full AI report...');
 
-            const reportResponse = await generateAssistantReport(savedFeedback.assistantSessionId);
+            let reportResponse;
+            try {
+              reportResponse = await getAssistantReport(sessionId);
+            } catch {
+              setReportMessage('Generating full AI report...');
+              reportResponse = await generateAssistantReport(sessionId);
+            }
 
             if (!isMounted) return;
 
@@ -155,8 +213,9 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
         }
       } catch (error) {
         if (isMounted) {
-          setStatus('error');
-          setMessage(error instanceof Error ? error.message : 'Unable to load interview feedback.');
+          const errorMessage = error instanceof Error ? error.message : 'Unable to load interview feedback.';
+          setStatus(errorMessage.toLowerCase().includes('sign in') || errorMessage.includes('401') ? 'unauthorized' : 'error');
+          setMessage(errorMessage);
         }
       }
     }
