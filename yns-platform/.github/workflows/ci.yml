@@ -16,7 +16,6 @@ jobs:
       run:
         working-directory: yns-platform/yns-api
     env:
-      ANTHROPIC_API_KEY: test-anthropic-key
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       FRONTEND_URL: http://localhost:3000
       SUPABASE_SERVICE_ROLE_KEY: test-supabase-service-role-key

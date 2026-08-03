@@ -34,6 +34,10 @@ jobs:
       WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
       DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
       RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -65,6 +69,8 @@ jobs:
             --region "$REGION" \
             --project "$PROJECT_ID" \
             --service-account "$RUNTIME_SA" \
+            --set-env-vars "SUPABASE_URL=$SUPABASE_URL,FRONTEND_URL=$FRONTEND_URL" \
+            --set-secrets "DATABASE_URL=database-url:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest" \
             --allow-unauthenticated \
             --quiet
           API_URL=$(gcloud run services describe yns-api \
@@ -79,6 +85,8 @@ jobs:
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/containers/yns-web:${GITHUB_SHA}"
           docker build \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$API_URL" \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
             -t "$IMAGE" .
           docker push "$IMAGE"
           echo "WEB_IMAGE=$IMAGE" >> "$GITHUB_ENV"
