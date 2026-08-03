@@ -1,0 +1,93 @@
+name: Deploy
+
+# Push to main  -> deploy to STAGING automatically.
+# Manual run    -> deploy to PRODUCTION (gate it behind a protected
+#                  GitHub Environment with a required reviewer).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: environment
+        required: true
+        default: staging
+
+# Required for Workload Identity Federation (keyless auth to GCP).
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # push -> staging; manual dispatch -> whatever the operator picks.
+    # A protected "production" environment forces an approval before prod deploys.
+    environment: ${{ github.event_name == 'push' && 'staging' || inputs.environment }}
+
+    env:
+      REGION: us-central1
+      # Per-environment values live in GitHub Environment variables (Settings ->
+      # Environments -> staging / production). Nothing secret here — WIF means no keys.
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+      DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
+      RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (keyless via WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # ---- Backend: build, push, deploy. Capture its URL for the frontend build. ----
+      - name: Build & push API image
+        working-directory: yns-platform/yns-api
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/containers/yns-api:${GITHUB_SHA}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "API_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy API to Cloud Run
+        run: |
+          gcloud run deploy yns-api \
+            --image "$API_IMAGE" \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --service-account "$RUNTIME_SA" \
+            --allow-unauthenticated \
+            --quiet
+          API_URL=$(gcloud run services describe yns-api \
+            --region "$REGION" --project "$PROJECT_ID" \
+            --format="value(status.url)")
+          echo "API_URL=$API_URL" >> "$GITHUB_ENV"
+
+      # ---- Frontend: NEXT_PUBLIC_* is baked at build time, so pass the API URL now. ----
+      - name: Build & push web image
+        working-directory: yns-platform/yns-web
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/containers/yns-web:${GITHUB_SHA}"
+          docker build \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$API_URL" \
+            -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "WEB_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy web to Cloud Run
+        run: |
+          gcloud run deploy yns-web \
+            --image "$WEB_IMAGE" \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --allow-unauthenticated \
+            --quiet
