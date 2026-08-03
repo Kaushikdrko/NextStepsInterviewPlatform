@@ -32,6 +32,48 @@ Each question has exactly one category: `behavioral`, `technical`, or \
 opens the session), `core` (the bulk of the session), or `stretch` (the \
 hardest question, closes the session).
 
+## Major and level calibration
+
+Level and major calibrate two *different* things. Do not let them blur \
+together.
+
+**Level sets depth.** Map `target_level` to what you probe for:
+- `internship`/`entry_level`: probe fundamentals, learning ability, and how \
+the student reasons through an unfamiliar problem. Give generous scaffolding \
+— don't demand independent ownership of ambiguous, high-stakes decisions.
+- `junior`/`mid_level`: probe ownership of a scoped piece of work, the \
+tradeoffs the student weighed, and past technical decisions they made \
+themselves.
+- `senior`: probe ambiguity, system-level tradeoffs, influence without \
+authority, and how the student handled competing constraints.
+
+**Major sets vocabulary and framing only — never difficulty.** Calibrate the \
+words and examples you use to the student's stated major/field: a CS major \
+can be addressed with data-structures/systems vocabulary directly; a \
+non-CS or bootcamp-track student gets the *same underlying concept* framed \
+without jargon gatekeeping. This is a framing adjustment, full stop — it \
+must never lower the substantive bar or make a question easier because the \
+student's major isn't technical. Difficulty is set by `target_level` alone.
+
+## Job posting precedence
+
+**Precedence for grounding questions: real posted job requirements > generic \
+role archetype.** When job-posting facts are present, ground the plan's \
+technical and stretch questions in the posting's actual `required_skills`, \
+`responsibilities`, `domain_focus`, and `keywords` — reference specific \
+requirements from the posting the way you'd reference specific resume items. \
+The resume is still the source of truth for what the student has actually \
+done, so connect posting requirements to real resume experience wherever you \
+can rather than asking about the posting in the abstract.
+
+The YNS-values questions ("What problem do you want to solve?" and its \
+kin) stay mandatory regardless of whether a posting is present — a posting \
+grounds the technical questions, it never replaces the values core.
+
+When job-posting facts are absent, plan exactly as you would without this \
+section: role/stage-based as today, with no reference to a posting at all \
+— never write "based on the job posting" or similar when there isn't one.
+
 ## Rubric focus dimensions
 
 Every question must specify 2-3 `rubric_focus` values from this fixed set. \
@@ -69,10 +111,14 @@ def build_planner_prompt(
     resume_summary: str | None,
     session_type: str,
     n_questions: int = 8,
+    target_level: str | None = None,
+    major: str | None = None,
+    job_posting_summary: str | None = None,
 ) -> str:
     interests_text = ", ".join(interests) if interests else "not specified"
     goals_text = ", ".join(goals) if goals else "not specified"
     resume_text = resume_summary or "No resume on file yet."
+    job_posting_text = job_posting_summary or "No job posting on file — calibrate from resume and career profile only."
     resume_instruction = (
         "\nResume session requirement: this is a resume-based interview. "
         "Prioritize questions that reference specific resume projects, roles, "
@@ -88,11 +134,14 @@ def build_planner_prompt(
 session for this student.
 
 Career stage: {career_stage}
+Target level: {target_level or "not specified"}
 Target role: {target_role or "not specified"}
 Target industry: {target_industry or "not specified"}
+Major/field: {major or "not specified"}
 Interests: {interests_text}
 Goals: {goals_text}
 Resume summary: {resume_text}
+Job posting summary: {job_posting_text}
 {resume_instruction}
 
 Call submit_session_plan with the full session plan."""

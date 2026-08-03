@@ -5,7 +5,7 @@ from typing import Any
 from supabase import Client, create_client
 
 from app.config import settings
-from app.core.schemas.student import ResumeFacts, StudentProfile
+from app.core.schemas.student import JobPostingFacts, ResumeFacts, StudentProfile
 
 _client: Client | None = None
 
@@ -44,6 +44,16 @@ def get_student_profile(user_id: str) -> dict[str, Any] | None:
     )
     resume_row = resume_result.data[0] if resume_result.data else None
 
+    job_posting_result = (
+        client.table("job_postings")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    job_posting_row = job_posting_result.data[0] if job_posting_result.data else None
+
     return {
         "user_id": user_id,
         "user_type": user_row["user_type"],
@@ -56,6 +66,11 @@ def get_student_profile(user_id: str) -> dict[str, Any] | None:
         "intended_major": career_row.get("intended_major"),
         "colleges_preparing_for": career_row.get("colleges_preparing_for") or [],
         "extracted_text": resume_row.get("extracted_text") if resume_row else None,
+        "job_posting_id": job_posting_row.get("id") if job_posting_row else None,
+        "job_posting_company": job_posting_row.get("company") if job_posting_row else None,
+        "job_posting_title": job_posting_row.get("job_title") if job_posting_row else None,
+        "job_posting_description": job_posting_row.get("job_description") if job_posting_row else None,
+        "job_posting_parsed_facts": job_posting_row.get("parsed_facts") if job_posting_row else None,
     }
 
 
@@ -63,21 +78,29 @@ def build_student_profile(raw: dict[str, Any]) -> StudentProfile:
     if raw["user_type"] == "high_school":
         target_role = raw.get("intended_major")
         interests = raw.get("colleges_preparing_for") or []
+        major = raw.get("intended_major")
     else:
         target_role = raw.get("target_job_title") or raw.get("target_field")
         interests = raw.get("skills") or []
+        major = raw.get("major")
 
     resume_facts = None
     if raw.get("extracted_text"):
         resume_facts = ResumeFacts(**json.loads(raw["extracted_text"]))
+
+    job_posting_facts = None
+    if raw.get("job_posting_parsed_facts"):
+        job_posting_facts = JobPostingFacts(**raw["job_posting_parsed_facts"])
 
     return StudentProfile(
         student_id=raw["user_id"],
         career_stage=raw["user_type"],
         target_role=target_role,
         target_level=raw.get("target_level"),
+        major=major,
         interests=interests,
         resume_facts=resume_facts,
+        job_posting_facts=job_posting_facts,
     )
 
 
@@ -352,4 +375,11 @@ def write_resume_extracted_text(resume_id: str, extracted_text: str) -> None:
     client = get_supabase_client()
     client.table("resumes").update({"extracted_text": extracted_text}).eq(
         "id", resume_id
+    ).execute()
+
+
+def write_job_posting_parsed_facts(job_posting_id: str, parsed_facts: dict[str, Any]) -> None:
+    client = get_supabase_client()
+    client.table("job_postings").update({"parsed_facts": parsed_facts}).eq(
+        "id", job_posting_id
     ).execute()

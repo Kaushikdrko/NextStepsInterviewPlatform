@@ -1,9 +1,10 @@
 import traceback
 
-from anthropic import APIStatusError, AuthenticationError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from google.auth.exceptions import GoogleAuthError
+from google.genai.errors import APIError
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -14,23 +15,27 @@ def register_error_handlers(app: FastAPI) -> None:
             content={"error": "Validation error", "detail": str(exc.errors())},
         )
 
-    @app.exception_handler(AuthenticationError)
-    async def anthropic_auth_exception_handler(_request: Request, _exc: AuthenticationError):
+    @app.exception_handler(GoogleAuthError)
+    async def gemini_auth_exception_handler(_request: Request, _exc: GoogleAuthError):
         return JSONResponse(
             status_code=502,
             content={
-                "error": "Anthropic authentication failed",
-                "detail": "Check ANTHROPIC_API_KEY in yns-api/.env. It should be a valid Anthropic key.",
+                "error": "Gemini authentication failed",
+                "detail": (
+                    "Could not authenticate to Vertex AI. Locally, run "
+                    "`gcloud auth application-default login`; in deployment, check "
+                    "the runtime service account has roles/aiplatform.user."
+                ),
             },
         )
 
-    @app.exception_handler(APIStatusError)
-    async def anthropic_status_exception_handler(_request: Request, exc: APIStatusError):
+    @app.exception_handler(APIError)
+    async def gemini_status_exception_handler(_request: Request, exc: APIError):
         return JSONResponse(
             status_code=502,
             content={
-                "error": "Anthropic request failed",
-                "detail": f"Anthropic returned status {exc.status_code}. Please try again.",
+                "error": "Gemini request failed",
+                "detail": f"Vertex AI returned status {exc.code}. Please try again.",
             },
         )
 

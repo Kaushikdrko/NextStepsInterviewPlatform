@@ -1,58 +1,7 @@
 from app.core.prompts.reporter_prompt import REPORTER_SYSTEM, build_reporter_prompt
 from app.core.schemas.report import SessionReport
 from app.core.schemas.student import StudentProfile
-from app.services.anthropic_client import call_claude
-
-SUBMIT_REPORT_TOOL = {
-    "name": "submit_report",
-    "description": "Submit the full synthesized session report.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "overall": {"type": "integer", "minimum": 1, "maximum": 5},
-            "category_breakdown": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "category": {
-                            "type": "string",
-                            "enum": ["behavioral", "technical", "values"],
-                        },
-                        "score": {"type": "integer", "minimum": 1, "maximum": 5},
-                        "notes": {"type": "string"},
-                    },
-                    "required": ["category", "score", "notes"],
-                },
-            },
-            "strengths": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 2,
-                "maxItems": 3,
-            },
-            "growth_areas": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 2,
-                "maxItems": 3,
-            },
-            "recommended_next_steps": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 3,
-                "maxItems": 3,
-            },
-        },
-        "required": [
-            "overall",
-            "category_breakdown",
-            "strengths",
-            "growth_areas",
-            "recommended_next_steps",
-        ],
-    },
-}
+from app.services.gemini_client import call_gemini
 
 
 def _flatten_turn(turn: dict) -> dict:
@@ -84,10 +33,9 @@ def generate_report(
         turn_evaluations=turn_evaluations,
     )
 
-    raw = call_claude(
-        messages=[{"role": "user", "content": prompt}],
+    raw = call_gemini(
+        contents=prompt,
         system=REPORTER_SYSTEM,
-        tools=[SUBMIT_REPORT_TOOL],
         response_model=SessionReport,
     )
 

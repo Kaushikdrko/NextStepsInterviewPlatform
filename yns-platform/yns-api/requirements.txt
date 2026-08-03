@@ -1,3 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-dotenv
+pydantic>=2
+email-validator
+google-genai
+httpx
+supabase
+pyjwt[crypto]
+certifi
 fastapi==0.117.1
 uvicorn[standard]==0.35.0
 sqlalchemy==2.0.48

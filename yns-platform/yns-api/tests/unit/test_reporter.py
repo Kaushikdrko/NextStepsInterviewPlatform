@@ -109,9 +109,9 @@ REPORT_DICT = {
 }
 
 
-@patch("app.core.assistants.reporter.call_claude")
-def test_report_returns_session_report(mock_call_claude):
-    mock_call_claude.return_value = REPORT_DICT
+@patch("app.core.assistants.reporter.call_gemini")
+def test_report_returns_session_report(mock_call_gemini):
+    mock_call_gemini.return_value = REPORT_DICT
 
     session = {"session_type": "mixed"}
     report = generate_report(session, make_turns(), make_profile())
@@ -119,9 +119,9 @@ def test_report_returns_session_report(mock_call_claude):
     assert isinstance(report, SessionReport)
 
 
-@patch("app.core.assistants.reporter.call_claude")
-def test_report_has_all_sections(mock_call_claude):
-    mock_call_claude.return_value = REPORT_DICT
+@patch("app.core.assistants.reporter.call_gemini")
+def test_report_has_all_sections(mock_call_gemini):
+    mock_call_gemini.return_value = REPORT_DICT
 
     session = {"session_type": "mixed"}
     report = generate_report(session, make_turns(), make_profile())
@@ -133,9 +133,9 @@ def test_report_has_all_sections(mock_call_claude):
     assert len(report.recommended_next_steps) >= 1
 
 
-@patch("app.core.assistants.reporter.call_claude")
-def test_report_overall_in_range(mock_call_claude):
-    mock_call_claude.return_value = {**REPORT_DICT, "overall": 3}
+@patch("app.core.assistants.reporter.call_gemini")
+def test_report_overall_in_range(mock_call_gemini):
+    mock_call_gemini.return_value = {**REPORT_DICT, "overall": 3}
 
     session = {"session_type": "mixed"}
     report = generate_report(session, make_turns(), make_profile())

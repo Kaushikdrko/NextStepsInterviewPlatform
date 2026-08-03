@@ -17,6 +17,7 @@ from app.api.sessions.models import (
 )
 from app.core.assistants.evaluator import evaluate_turn
 from app.core.assistants.interviewer import get_interviewer_response
+from app.core.assistants.job_posting_parser import parse_job_posting_text
 from app.core.assistants.planner import plan_session
 from app.core.schemas.session import PlannedQuestion
 from app.services.resume_parser import parse_resume_pdf
@@ -34,6 +35,7 @@ from app.services.supabase_client import (
     get_turns_for_session,
     get_turns_for_sessions,
     update_session_status,
+    write_job_posting_parsed_facts,
     write_resume_extracted_text,
     write_session,
     write_turn,
@@ -52,6 +54,26 @@ def _load_profile(user_id: str):
     raw = get_student_profile(user_id)
     if raw is None:
         raise HTTPException(status_code=404, detail="Profile not found — complete onboarding first")
+
+    if (
+        raw.get("job_posting_id")
+        and raw.get("job_posting_description")
+        and not raw.get("job_posting_parsed_facts")
+    ):
+        # Best-effort: an unparseable job posting shouldn't block practice.
+        try:
+            facts = parse_job_posting_text(
+                raw["job_posting_description"],
+                company=raw.get("job_posting_company"),
+                job_title=raw.get("job_posting_title"),
+            )
+        except Exception:
+            facts = None
+
+        if facts is not None:
+            write_job_posting_parsed_facts(raw["job_posting_id"], facts.model_dump())
+            raw["job_posting_parsed_facts"] = facts.model_dump()
+
     return build_student_profile(raw)
 
 
