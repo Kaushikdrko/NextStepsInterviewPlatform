@@ -26,3 +26,6 @@ __pycache__
 .agents
 docs/agentProgress.md
 
+# local tooling downloads
+cloud-sql-proxy
+
