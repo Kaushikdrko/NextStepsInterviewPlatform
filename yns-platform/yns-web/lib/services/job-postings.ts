@@ -1,4 +1,5 @@
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { waitForFirebaseUser } from '@/lib/firebase/client';
+import { apiFetch } from '@/lib/utils/api-client';
 
 export type JobPostingDraft = {
   id?: string;
@@ -17,21 +18,13 @@ type JobPostingRow = {
 };
 
 async function getSignedInUserId() {
-  const supabase = createSupabaseBrowserClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const user = await waitForFirebaseUser();
 
-  if (error && error.name !== 'AuthSessionMissingError') {
-    throw new Error(error.message);
-  }
-
-  if (!user?.id) {
+  if (!user?.uid) {
     throw new Error('You must be signed in to use a job posting interview.');
   }
 
-  return user.id;
+  return user.uid;
 }
 
 function toDraft(row: JobPostingRow | null): JobPostingDraft | null {
@@ -47,46 +40,28 @@ function toDraft(row: JobPostingRow | null): JobPostingDraft | null {
 }
 
 export async function getCurrentJobPosting(): Promise<JobPostingDraft | null> {
-  const supabase = createSupabaseBrowserClient();
   const userId = await getSignedInUserId();
 
-  const { data, error } = await supabase
-    .from('job_postings')
-    .select('id,company,job_title,job_description,posting_url')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    const data = await apiFetch<JobPostingRow>(`/api/job-postings/user/${userId}`);
+    return toDraft(data);
+  } catch {
+    return null;
   }
-
-  return toDraft(data as JobPostingRow | null);
 }
 
 export async function saveCurrentJobPosting(draft: JobPostingDraft): Promise<JobPostingDraft> {
-  const supabase = createSupabaseBrowserClient();
-  const userId = await getSignedInUserId();
-  const now = new Date().toISOString();
-  const payload = {
-    user_id: userId,
-    company: draft.company.trim() || null,
-    job_title: draft.job_title.trim() || null,
-    job_description: draft.job_description.trim() || null,
-    posting_url: draft.posting_url.trim() || null,
-    updated_at: now,
-  };
+  await getSignedInUserId();
 
-  const query = draft.id
-    ? supabase.from('job_postings').update(payload).eq('id', draft.id)
-    : supabase.from('job_postings').insert({ ...payload, created_at: now });
+  const data = await apiFetch<JobPostingRow>('/api/job-postings', {
+    method: 'POST',
+    body: JSON.stringify({
+      company: draft.company.trim(),
+      job_title: draft.job_title.trim(),
+      job_description: draft.job_description.trim(),
+      posting_url: draft.posting_url.trim(),
+    }),
+  });
 
-  const { data, error } = await query.select('id,company,job_title,job_description,posting_url').single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return toDraft(data as JobPostingRow) as JobPostingDraft;
+  return toDraft(data) as JobPostingDraft;
 }

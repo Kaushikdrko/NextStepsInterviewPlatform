@@ -4,9 +4,11 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, LogOut, Settings } from 'lucide-react';
 
+import { signOut } from 'firebase/auth';
+
 import { ChampionAvatar } from '@/components/champion/ChampionAvatar';
 import type { ChampionProfile } from '@/lib/champion/types';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { getFirebaseAuth } from '@/lib/firebase/client';
 import { cn } from '@/lib/utils';
 
 const PLACEHOLDER_NAME = 'Champion';
@@ -71,8 +73,7 @@ export function ChampionAccountMenu({
 
   async function handleSignOut() {
     setIsSigningOut(true);
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
+    await signOut(getFirebaseAuth());
     router.replace('/sign-in');
     router.refresh();
   }

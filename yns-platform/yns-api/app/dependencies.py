@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.middleware.auth import verify_supabase_jwt
+from app.middleware.auth import verify_firebase_token
 
 security = HTTPBearer(auto_error=False)
 
@@ -11,29 +11,20 @@ security = HTTPBearer(auto_error=False)
 CHAMPION_ROLES = frozenset({"champion", "admin"})
 
 
-def _metadata_roles(value: Any) -> set[str]:
-    if isinstance(value, str):
-        return {value}
-    if isinstance(value, list):
-        return {item for item in value if isinstance(item, str)}
-    return set()
-
-
 def _claim_roles(claims: dict[str, Any]) -> set[str]:
-    app_metadata = claims.get("app_metadata") or {}
-    user_metadata = claims.get("user_metadata") or {}
+    roles: set[str] = set()
 
-    return {
-        item
-        for item in {
-            claims.get("role"),
-            app_metadata.get("role"),
-            user_metadata.get("role"),
-            *_metadata_roles(app_metadata.get("roles")),
-            *_metadata_roles(user_metadata.get("roles")),
-        }
-        if isinstance(item, str)
-    }
+    role = claims.get("role")
+    if isinstance(role, str):
+        roles.add(role)
+
+    extra_roles = claims.get("roles")
+    if isinstance(extra_roles, str):
+        roles.add(extra_roles)
+    elif isinstance(extra_roles, list):
+        roles.update(item for item in extra_roles if isinstance(item, str))
+
+    return roles
 
 
 def _claims_subject(claims: dict[str, Any]) -> str:
@@ -49,7 +40,7 @@ def get_current_claims(
     if credentials is None:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    return verify_supabase_jwt(credentials.credentials)
+    return verify_firebase_token(credentials.credentials)
 
 
 def get_current_student(
@@ -59,14 +50,7 @@ def get_current_student(
 
 
 def require_admin_user(claims: dict[str, Any] = Depends(get_current_claims)) -> str:
-    app_metadata = claims.get("app_metadata") or {}
-    user_metadata = claims.get("user_metadata") or {}
-
-    if (
-        "admin" not in _claim_roles(claims)
-        and app_metadata.get("admin") is not True
-        and user_metadata.get("admin") is not True
-    ):
+    if "admin" not in _claim_roles(claims):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     return _claims_subject(claims)
@@ -75,11 +59,15 @@ def require_admin_user(claims: dict[str, Any] = Depends(get_current_claims)) -> 
 def require_champion_user(claims: dict[str, Any] = Depends(get_current_claims)) -> str:
     """Authorize the Champion Dashboard.
 
-    The role lives in the Supabase JWT (``app_metadata.role`` / ``roles``), not in
+    The role lives in the Firebase ID token's custom claims (``role``), not in
     a database column — see ``require_admin_user`` for the same pattern. Grant it
-    with the Supabase admin API:
+    with the Firebase Admin SDK:
 
-        supabase.auth.admin.update_user_by_id(uid, {"app_metadata": {"role": "champion"}})
+        auth.set_custom_user_claims(uid, {"role": "champion"})
+
+    Custom claims only take effect on the user's *next* ID token refresh (up to
+    an hour on the client, or immediately if they sign in again) — not
+    retroactively on tokens already issued.
 
     Champions are not scoped to individual students: every authorized champion
     sees the same organization-wide data, so this returns only the caller's id

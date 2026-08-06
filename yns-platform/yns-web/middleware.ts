@@ -1,31 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import type { User } from '@supabase/supabase-js';
-
-import { updateSession } from '@/lib/supabase/middleware';
 
 const PROTECTED_PREFIXES = ["/onboarding", "/dashboard", "/sessions", "/champion"];
 
 const CHAMPION_PREFIX = "/champion";
-const CHAMPION_ROLES = new Set(["champion", "admin"]);
 
-// This is a redirect for the benefit of the person browsing, not a security
-// boundary. The API enforces the same rule independently — see
-// require_champion_user in yns-api/app/dependencies.py.
-function hasChampionRole(user: User): boolean {
-  const appMetadata = (user.app_metadata ?? {}) as Record<string, unknown>;
-  const userMetadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+// yns-web has no server-side means to cryptographically verify a Firebase
+// session in middleware (that needs firebase-admin, which doesn't run on
+// the Edge runtime middleware uses). yns-firebase/client.ts keeps these
+// cookies in sync with real client-side auth state as a redirect hint only
+// — this is NOT a security boundary. The API enforces the same rule
+// independently — see get_current_student/require_champion_user in
+// yns-api/app/dependencies.py.
+const SESSION_COOKIE = "yns-session";
+const ROLE_COOKIE = "yns-role";
 
-  const candidates = [
-    appMetadata.role,
-    userMetadata.role,
-    ...(Array.isArray(appMetadata.roles) ? appMetadata.roles : []),
-    ...(Array.isArray(userMetadata.roles) ? userMetadata.roles : []),
-  ];
-
-  return candidates.some((role) => typeof role === "string" && CHAMPION_ROLES.has(role));
-}
-
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname === "/login") {
@@ -37,17 +26,15 @@ export async function middleware(request: NextRequest) {
   }
 
   if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-    const { response, user } = await updateSession(request);
+    const isSignedIn = request.cookies.get(SESSION_COOKIE)?.value === "1";
 
-    if (!user) {
+    if (!isSignedIn) {
       return NextResponse.redirect(new URL("/sign-in", request.url));
     }
 
-    if (pathname.startsWith(CHAMPION_PREFIX) && !hasChampionRole(user)) {
+    if (pathname.startsWith(CHAMPION_PREFIX) && request.cookies.get(ROLE_COOKIE)?.value !== "champion") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-
-    return response;
   }
 
   return NextResponse.next();

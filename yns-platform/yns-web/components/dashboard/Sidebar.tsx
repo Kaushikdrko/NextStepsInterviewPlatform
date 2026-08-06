@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FileText, History, LayoutDashboard, LogOut, Mic, Settings, Sparkles, User } from 'lucide-react';
 
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { signOut } from 'firebase/auth';
+
+import { getFirebaseAuth } from '@/lib/firebase/client';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -36,8 +38,7 @@ export function Sidebar() {
   }, [pathname]);
 
   const handleLogout = async () => {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
+    await signOut(getFirebaseAuth());
     router.replace('/sign-in');
     router.refresh();
   };

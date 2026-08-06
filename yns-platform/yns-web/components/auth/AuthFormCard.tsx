@@ -5,12 +5,36 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, LockKeyhole, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
 
+import { signInWithCustomToken, signInWithEmailAndPassword } from 'firebase/auth';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/alert';
-import { createSupabaseBrowserClient, persistSessionForServer } from '@/lib/supabase/client';
+import { getFirebaseAuth } from '@/lib/firebase/client';
 import { getPostLoginRedirect } from '@/lib/services/auth';
+import { API_BASE_URL } from '@/lib/utils/api-client';
+
+type OtpStartResponse = { success: boolean; error?: string };
+type OtpVerifyResponse = { success: boolean; custom_token?: string; error?: string };
+
+async function startOtp(email: string): Promise<OtpStartResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/otp/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return response.json();
+}
+
+async function verifyOtp(email: string, code: string, password: string): Promise<OtpVerifyResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/otp/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, password }),
+  });
+  return response.json();
+}
 
 interface AuthFormCardProps {
   title: string;
@@ -61,8 +85,6 @@ export function AuthFormCard({
     setIsSubmitting(true);
 
     try {
-      const supabase = createSupabaseBrowserClient();
-
       if (mode === 'sign-up') {
         if (isOtpStep) {
           const cleanedCode = otpCode.trim();
@@ -72,26 +94,14 @@ export function AuthFormCard({
             return;
           }
 
-          const { data, error: otpError } = await supabase.auth.verifyOtp({
-            email: pendingOtpEmail,
-            token: cleanedCode,
-            type: 'email',
-            options: {
-              redirectTo: `${window.location.origin}/auth/callback`,
-            },
-          });
+          const result = await verifyOtp(pendingOtpEmail, cleanedCode, password);
 
-          if (otpError) {
-            setError(otpError.message);
+          if (!result.success || !result.custom_token) {
+            setError(result.error ?? 'Unable to verify your account. Please request a new code and try again.');
             return;
           }
 
-          if (!data.session || !data.user) {
-            setError('Unable to verify your account. Please request a new code and try again.');
-            return;
-          }
-
-          persistSessionForServer(data.session);
+          await signInWithCustomToken(getFirebaseAuth(), result.custom_token);
           router.push('/onboarding');
           return;
         }
@@ -102,21 +112,11 @@ export function AuthFormCard({
         }
 
         const normalizedEmail = email.trim().toLowerCase();
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
+        const result = await startOtp(normalizedEmail);
 
-        if (signUpError) {
-          setError(signUpError.message);
+        if (!result.success) {
+          setError(result.error ?? 'Unable to start sign-up. Please try again.');
           return;
-        }
-
-        if (data.session) {
-          await supabase.auth.signOut();
         }
 
         setPendingOtpEmail(normalizedEmail);
@@ -125,23 +125,9 @@ export function AuthFormCard({
         return;
       }
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        setError(signInError.message);
-        return;
-      }
-
-      if (!data.session || !data.user) {
-        setError('Unable to start your session. Please try again.');
-        return;
-      }
-
-      persistSessionForServer(data.session);
-      const { redirectTo, error: redirectError } = await getPostLoginRedirect(data.user.id, supabase, data.user);
+      const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+      const claims = await credential.user.getIdTokenResult().then((result) => result.claims);
+      const { redirectTo, error: redirectError } = await getPostLoginRedirect(credential.user.uid, claims);
 
       if (redirectError) {
         setError(redirectError);
@@ -149,6 +135,8 @@ export function AuthFormCard({
       }
 
       router.push(redirectTo);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -164,17 +152,10 @@ export function AuthFormCard({
     setIsSubmitting(true);
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email: pendingOtpEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+      const result = await startOtp(pendingOtpEmail);
 
-      if (resendError) {
-        setError(resendError.message);
+      if (!result.success) {
+        setError(result.error ?? 'Unable to resend the code. Please try again.');
         return;
       }
 

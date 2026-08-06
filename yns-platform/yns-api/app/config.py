@@ -15,6 +15,8 @@ class Settings:
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    resend_api_key: str = os.getenv("RESEND_API_KEY", "")
+    otp_from_email: str = os.getenv("OTP_FROM_EMAIL", "YNS <onboarding@resend.dev>")
 
     @property
     def cors_origins(self) -> list[str]:

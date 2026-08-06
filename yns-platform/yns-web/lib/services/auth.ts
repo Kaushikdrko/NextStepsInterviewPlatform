@@ -1,76 +1,43 @@
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { IdTokenResult, User } from "firebase/auth";
 
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { hasChampionRole } from "@/lib/firebase/client";
+import { apiFetch } from "@/lib/utils/api-client";
 
 export const MAIN_APP_ROUTE = "/dashboard";
 export const CHAMPION_APP_ROUTE = "/champion/dashboard";
-
-const CHAMPION_ROLES = new Set(["champion", "admin"]);
 
 type RedirectResult = {
   redirectTo: string;
   error?: string;
 };
 
-type RoleUser = Pick<User, "app_metadata" | "user_metadata">;
-
-function hasChampionRole(user: RoleUser | null | undefined): boolean {
-  if (!user) {
-    return false;
-  }
-
-  const appMetadata = (user.app_metadata ?? {}) as Record<string, unknown>;
-  const userMetadata = (user.user_metadata ?? {}) as Record<string, unknown>;
-
-  const candidates = [
-    appMetadata.role,
-    userMetadata.role,
-    ...(Array.isArray(appMetadata.roles) ? appMetadata.roles : []),
-    ...(Array.isArray(userMetadata.roles) ? userMetadata.roles : []),
-  ];
-
-  return candidates.some((role) => typeof role === "string" && CHAMPION_ROLES.has(role));
-}
-
-async function resolveCurrentUser(supabase: SupabaseClient, user?: RoleUser): Promise<RoleUser | null> {
-  if (user) {
-    return user;
-  }
-
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
-}
+type UserResponse = {
+  id: string;
+  onboarding_completed: boolean;
+};
 
 export async function getPostLoginRedirect(
   userId: string,
-  supabase: SupabaseClient = createSupabaseBrowserClient(),
-  user?: RoleUser,
+  claims: IdTokenResult["claims"] | null | undefined,
 ): Promise<RedirectResult> {
-  // TODO: Enable RLS and user-scoped policies before production.
-  const { data, error } = await supabase
-    .from("app_users")
-    .select("onboarding_completed")
-    .eq("id", userId)
-    .maybeSingle();
+  try {
+    const user = await apiFetch<UserResponse>(`/api/users/${userId}`);
 
-  if (error) {
-    return { redirectTo: "/onboarding", error: error.message };
-  }
+    if (!user.onboarding_completed) {
+      return { redirectTo: "/onboarding" };
+    }
 
-  if (!data) {
+    return { redirectTo: hasChampionRole(claims) ? CHAMPION_APP_ROUTE : MAIN_APP_ROUTE };
+  } catch {
+    // No app_users row yet (new sign-up) or the request failed — send them
+    // through onboarding, same as the old "no row found" branch.
     return { redirectTo: "/onboarding" };
   }
-
-  if (!data.onboarding_completed) {
-    return { redirectTo: "/onboarding" };
-  }
-
-  const currentUser = await resolveCurrentUser(supabase, user);
-  return { redirectTo: hasChampionRole(currentUser) ? CHAMPION_APP_ROUTE : MAIN_APP_ROUTE };
 }
 
-export async function hasCompletedOnboarding(userId: string, supabase: SupabaseClient): Promise<boolean> {
-  const { redirectTo } = await getPostLoginRedirect(userId, supabase);
+export async function hasCompletedOnboarding(user: User): Promise<boolean> {
+  const claims = await user.getIdTokenResult().then((result) => result.claims);
+  const { redirectTo } = await getPostLoginRedirect(user.uid, claims);
 
   return redirectTo !== "/onboarding";
 }

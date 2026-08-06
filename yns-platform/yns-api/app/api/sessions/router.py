@@ -22,21 +22,23 @@ from app.core.assistants.planner import plan_session
 from app.core.schemas.session import PlannedQuestion
 from app.services.resume_parser import parse_resume_pdf
 from app.dependencies import get_current_student
-from app.services.supabase_client import (
+from app.services.profile_store import (
     build_student_profile,
     download_resume_bytes,
-    get_last_n_turns,
     get_latest_resume_metadata,
+    get_student_profile,
+    write_job_posting_parsed_facts,
+    write_resume_extracted_text,
+)
+from app.services.supabase_client import (
+    get_last_n_turns,
     get_dashboard_stats_for_user,
     get_session_with_plan,
     get_sessions_for_user,
-    get_student_profile,
     get_weekly_progress_for_user,
     get_turns_for_session,
     get_turns_for_sessions,
     update_session_status,
-    write_job_posting_parsed_facts,
-    write_resume_extracted_text,
     write_session,
     write_turn,
 )

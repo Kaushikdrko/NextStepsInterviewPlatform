@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { BriefcaseBusiness, CheckCircle2, FileText, GraduationCap, Layers3, Loader2, Target, UserRound, XCircle } from 'lucide-react';
 
 import { getProfileSummary, type ProfileSummaryResponse } from '@/lib/services/profile-summary';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { waitForFirebaseUser } from '@/lib/firebase/client';
 import { cn } from '@/lib/utils';
 
 const emptyValue = 'Not added';
@@ -61,17 +61,13 @@ export function ProfileSummaryCard({ className }: ProfileSummaryCardProps) {
       setIsLoading(true);
       setError(null);
 
-      const supabase = createSupabaseBrowserClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      const user = await waitForFirebaseUser();
 
-      if (userError || !user?.id) {
-        throw new Error(userError?.message ?? 'Unable to identify the signed-in user.');
+      if (!user?.uid) {
+        throw new Error('Unable to identify the signed-in user.');
       }
 
-      const data = await getProfileSummary(user.id);
+      const data = await getProfileSummary(user.uid);
 
       setSummary(data);
     } catch (profileError) {
