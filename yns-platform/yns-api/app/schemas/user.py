@@ -20,5 +20,6 @@ class UserResponse(BaseModel):
     email: EmailStr
     name: str | None = None
     user_type: UserType
+    onboarding_completed: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None

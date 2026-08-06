@@ -10,9 +10,11 @@ from app.api.sessions.router import router as sessions_router
 from app.config import settings
 from app.middleware.error_handler import register_error_handlers
 from app.routers import (
+    auth_otp,
     career_profiles,
     high_school_profiles,
     job_postings,
+    onboarding,
     onboarding_summary,
     resumes,
     user_skills,
@@ -46,6 +48,8 @@ def health_check():
 
 
 app.include_router(users.router, prefix="/api")
+app.include_router(auth_otp.router, prefix="/api")
+app.include_router(onboarding.router, prefix="/api")
 app.include_router(career_profiles.router, prefix="/api")
 app.include_router(high_school_profiles.router, prefix="/api")
 app.include_router(user_skills.router, prefix="/api")

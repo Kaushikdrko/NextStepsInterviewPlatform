@@ -25,5 +25,7 @@ __pycache__
 .claude
 .agents
 docs/agentProgress.md
-docs/claude.md
+
+# local tooling downloads
+cloud-sql-proxy
 

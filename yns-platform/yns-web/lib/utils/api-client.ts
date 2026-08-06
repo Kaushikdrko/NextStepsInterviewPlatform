@@ -1,4 +1,4 @@
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { getFirebaseIdToken } from '@/lib/firebase/client';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
@@ -8,18 +8,10 @@ async function getAuthHeaders() {
   }
 
   const headers = new Headers();
-  const supabase = createSupabaseBrowserClient();
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
+  const idToken = await getFirebaseIdToken();
 
-  if (error && error.name !== 'AuthSessionMissingError') {
-    throw new Error(error.message);
-  }
-
-  if (session?.access_token) {
-    headers.set('Authorization', `Bearer ${session.access_token}`);
+  if (idToken) {
+    headers.set('Authorization', `Bearer ${idToken}`);
   }
 
   return headers;

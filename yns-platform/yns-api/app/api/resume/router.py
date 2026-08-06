@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.resume.models import ParseResumeRequest, ParseResumeResponse
 from app.dependencies import get_current_student
+from app.services.profile_store import download_resume_bytes, write_resume_extracted_text
 from app.services.resume_parser import parse_resume_pdf
-from app.services.supabase_client import download_resume_bytes, write_resume_extracted_text
 
 router = APIRouter()
 

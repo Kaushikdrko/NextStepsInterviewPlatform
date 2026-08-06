@@ -27,13 +27,14 @@ DETAILS_URL = f"/api/champion/students/{STUDENT_ID}"
 
 
 def claims_for(role: str | None) -> dict:
-    app_metadata = {"role": role} if role else {}
+    # Firebase custom claims (set via auth.set_custom_user_claims) land at
+    # the top level of the decoded ID token — unlike Supabase's nested
+    # app_metadata/user_metadata shape.
     return {
         "sub": CHAMPION_ID,
         "email": "klyne@yournextsteps.example",
-        "role": "authenticated",
-        "app_metadata": app_metadata,
-        "user_metadata": {"name": "Klyne Smith"},
+        "name": "Klyne Smith",
+        **({"role": role} if role else {}),
     }
 
 
@@ -132,7 +133,7 @@ def test_authorized_roles_get_through(client, recorded, role):
 
 def test_roles_array_is_honoured(client, recorded):
     payload = claims_for(None)
-    payload["app_metadata"]["roles"] = ["champion"]
+    payload["roles"] = ["champion"]
     app.dependency_overrides[get_current_claims] = lambda: payload
     assert client.get(LIST_URL).status_code == 200
 

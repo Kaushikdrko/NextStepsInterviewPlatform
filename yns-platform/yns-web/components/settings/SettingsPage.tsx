@@ -22,13 +22,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { FirebaseError } from 'firebase/app';
+import { signOut, updatePassword } from 'firebase/auth';
+import { getFirebaseAuth, waitForFirebaseUser } from '@/lib/firebase/client';
 import { cn } from '@/lib/utils';
 
 type AccountState = {
   id: string;
   email: string;
-  emailConfirmedAt: string | null;
+  emailVerified: boolean;
   lastSignInAt: string | null;
 };
 
@@ -62,23 +64,19 @@ export function SettingsPage() {
         setIsLoading(true);
         setAccountError('');
 
-        const supabase = createSupabaseBrowserClient();
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+        const user = await waitForFirebaseUser();
 
-        if (error || !user) {
-          throw new Error(error?.message ?? 'You must be signed in to view settings.');
+        if (!user) {
+          throw new Error('You must be signed in to view settings.');
         }
 
         if (!isMounted) return;
 
         setAccount({
-          id: user.id,
+          id: user.uid,
           email: user.email ?? 'Unknown email',
-          emailConfirmedAt: user.email_confirmed_at ?? null,
-          lastSignInAt: user.last_sign_in_at ?? null,
+          emailVerified: user.emailVerified,
+          lastSignInAt: user.metadata.lastSignInTime ?? null,
         });
       } catch (error) {
         if (isMounted) {
@@ -115,26 +113,30 @@ export function SettingsPage() {
 
     try {
       setIsUpdatingPassword(true);
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const user = await waitForFirebaseUser();
 
-      if (error) {
-        throw new Error(error.message);
+      if (!user) {
+        throw new Error('You must be signed in to update your password.');
       }
+
+      await updatePassword(user, newPassword);
 
       setNewPassword('');
       setConfirmPassword('');
       setAccountMessage('Password updated successfully.');
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : 'Unable to update password.');
+      if (error instanceof FirebaseError && error.code === 'auth/requires-recent-login') {
+        setAccountError('For security, please sign out and back in, then try updating your password again.');
+      } else {
+        setAccountError(error instanceof Error ? error.message : 'Unable to update password.');
+      }
     } finally {
       setIsUpdatingPassword(false);
     }
   };
 
   const handleLogout = async () => {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
+    await signOut(getFirebaseAuth());
     router.replace('/sign-in');
     router.refresh();
   };
@@ -213,13 +215,13 @@ export function SettingsPage() {
                         <Badge
                           className={cn(
                             'border-0 px-3 py-1 font-extrabold',
-                            account.emailConfirmedAt ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
+                            account.emailVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
                           )}
                         >
-                          {account.emailConfirmedAt ? 'Verified' : 'Unverified'}
+                          {account.emailVerified ? 'Verified' : 'Unverified'}
                         </Badge>
                       </SettingsRow>
-                      <SettingsRow icon={CheckCircle2} label="Email verified" value={formatDateTime(account.emailConfirmedAt)} />
+                      <SettingsRow icon={CheckCircle2} label="Email verified" value={account.emailVerified ? 'Verified' : 'Not verified'} />
                       <SettingsRow icon={KeyRound} label="Last sign in" value={formatDateTime(account.lastSignInAt)} />
                     </div>
 

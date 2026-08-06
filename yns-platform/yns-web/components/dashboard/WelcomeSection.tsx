@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Play, UserRoundCog } from 'lucide-react';
 
 import { getUser } from '@/lib/services/users';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { waitForFirebaseUser } from '@/lib/firebase/client';
 
 export function WelcomeSection() {
   const [userName, setUserName] = useState('there');
@@ -15,14 +15,11 @@ export function WelcomeSection() {
 
     async function loadUserName() {
       try {
-        const supabase = createSupabaseBrowserClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const user = await waitForFirebaseUser();
 
-        if (!user?.id) return;
+        if (!user?.uid) return;
 
-        const appUser = await getUser(user.id);
+        const appUser = await getUser(user.uid);
         const name = appUser.name?.trim();
 
         if (isMounted && name) {

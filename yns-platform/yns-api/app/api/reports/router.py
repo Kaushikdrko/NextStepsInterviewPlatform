@@ -3,11 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.reports.models import GenerateReportResponse
 from app.core.assistants.reporter import generate_report
 from app.dependencies import get_current_student
+from app.services.profile_store import build_student_profile, get_student_profile
 from app.services.supabase_client import (
-    build_student_profile,
     get_report_for_session,
     get_session_with_plan,
-    get_student_profile,
     get_turns_for_session,
     write_report,
 )

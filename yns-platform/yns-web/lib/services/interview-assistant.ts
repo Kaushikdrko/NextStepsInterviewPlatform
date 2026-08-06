@@ -1,4 +1,4 @@
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { getFirebaseIdToken } from '@/lib/firebase/client';
 import { API_BASE_URL } from '@/lib/utils/api-client';
 
 export type AssistantSessionType = 'behavioral' | 'technical' | 'mixed' | 'resume';
@@ -138,21 +138,13 @@ export type InterviewFeedbackSession = {
 };
 
 async function getAccessToken() {
-  const supabase = createSupabaseBrowserClient();
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
+  const token = await getFirebaseIdToken();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!session?.access_token) {
+  if (!token) {
     throw new Error('You must be signed in to use the AI interview assistant.');
   }
 
-  return session.access_token;
+  return token;
 }
 
 async function assistantFetch<T>(path: string, init?: RequestInit): Promise<T> {
