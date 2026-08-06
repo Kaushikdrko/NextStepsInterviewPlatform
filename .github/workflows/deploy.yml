@@ -71,6 +71,7 @@ jobs:
             --service-account "$RUNTIME_SA" \
             --set-env-vars "SUPABASE_URL=$SUPABASE_URL,FRONTEND_URL=$FRONTEND_URL" \
             --set-secrets "DATABASE_URL=database-url:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest" \
+            --add-cloudsql-instances "${PROJECT_ID}:${REGION}:yns-interview-postgres" \
             --allow-unauthenticated \
             --quiet
           API_URL=$(gcloud run services describe yns-api \
