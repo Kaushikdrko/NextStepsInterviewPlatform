@@ -1,69 +1,37 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Play, UserRoundCog } from 'lucide-react';
+import { Play } from 'lucide-react';
 
-import { getUser } from '@/lib/services/users';
-import { waitForFirebaseUser } from '@/lib/firebase/client';
+type WelcomeSectionProps = {
+  userName: string;
+  practiceStreakDays: number;
+};
 
-export function WelcomeSection() {
-  const [userName, setUserName] = useState('there');
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadUserName() {
-      try {
-        const user = await waitForFirebaseUser();
-
-        if (!user?.uid) return;
-
-        const appUser = await getUser(user.uid);
-        const name = appUser.name?.trim();
-
-        if (isMounted && name) {
-          setUserName(name);
-        }
-      } catch {
-        // Keep the friendly fallback if the API is unavailable.
-      }
-    }
-
-    loadUserName();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
+export function WelcomeSection({ userName, practiceStreakDays }: WelcomeSectionProps) {
   return (
-    <section className="relative flex min-h-[160px] items-center overflow-hidden rounded-[14px] bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-600 px-6 py-6 text-white shadow-sm shadow-indigo-200 sm:px-7">
-      <div className="absolute -right-9 -top-16 h-36 w-36 rounded-full bg-white/15" />
-      <div className="absolute -bottom-24 right-11 h-40 w-40 rounded-full bg-white/10" />
+    <section className="flex flex-col gap-4 rounded-[14px] border border-[#e7dbd0] bg-white px-5 py-4 shadow-[0_2px_5px_rgba(78,45,31,0.05)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="truncate text-lg font-extrabold tracking-normal text-[#271f1b]">Welcome back, {userName}</h1>
+        <p className="mt-1 text-sm font-medium text-[#8a7c75]">
+          {practiceStreakDays > 0
+            ? `Keep up the momentum - you're ${practiceStreakDays} ${practiceStreakDays === 1 ? 'day' : 'days'} into your practice streak.`
+            : 'Start a practice session today and build your interview streak.'}
+        </p>
+      </div>
 
-      <div className="relative z-10 max-w-2xl space-y-4">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Welcome back, {userName} 👋</h1>
-          <p className="text-sm font-semibold text-indigo-100">Ready to practice your next interview?</p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/practice"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-white px-7 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50"
-          >
-            <Play className="h-4 w-4" aria-hidden="true" />
-            Start Interview Practice
-          </Link>
-          <Link
-            href="/settings"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border-2 border-white/25 px-7 text-sm font-bold text-white transition hover:bg-white/10"
-          >
-            <UserRoundCog className="h-4 w-4" aria-hidden="true" />
-            Update Profile
-          </Link>
-        </div>
+      <div className="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
+        <Link
+          href="/settings"
+          className="inline-flex h-10 items-center justify-center rounded-lg border border-[#e3d4c7] bg-white px-4 text-sm font-bold text-[#71645e] transition hover:bg-[#fbf6f1]"
+        >
+          Update profile
+        </Link>
+        <Link
+          href="/practice"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#ad2d1f] px-5 text-sm font-extrabold text-white shadow-[0_4px_9px_rgba(173,45,31,0.18)] transition hover:bg-[#942417]"
+        >
+          <Play className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+          Start interview practice
+        </Link>
       </div>
     </section>
   );

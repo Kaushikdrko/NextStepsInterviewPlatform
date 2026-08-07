@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from app.api.reports.models import GenerateReportResponse
 from app.core.assistants.reporter import generate_report
 from app.dependencies import get_current_student
+from app.database import get_db
 from app.services.profile_store import build_student_profile, get_student_profile
-from app.services.supabase_client import (
+from app.services.interview_store import (
     get_report_for_session,
     get_session_with_plan,
     get_turns_for_session,
@@ -14,8 +16,8 @@ from app.services.supabase_client import (
 router = APIRouter()
 
 
-def _get_owned_session(session_id: str, user_id: str) -> dict:
-    session = get_session_with_plan(session_id)
+def _get_owned_session(db: Session, session_id: str, user_id: str) -> dict:
+    session = get_session_with_plan(db, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     if session["user_id"] != user_id:
@@ -27,10 +29,11 @@ def _get_owned_session(session_id: str, user_id: str) -> dict:
 def get_report(
     session_id: str,
     user_id: str = Depends(get_current_student),
+    db: Session = Depends(get_db),
 ):
-    _get_owned_session(session_id, user_id)
+    _get_owned_session(db, session_id, user_id)
 
-    report = get_report_for_session(session_id)
+    report = get_report_for_session(db, session_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
 
@@ -49,10 +52,11 @@ def get_report(
 def create_report(
     session_id: str,
     user_id: str = Depends(get_current_student),
+    db: Session = Depends(get_db),
 ):
-    session = _get_owned_session(session_id, user_id)
+    session = _get_owned_session(db, session_id, user_id)
 
-    all_turns = get_turns_for_session(session_id)
+    all_turns = get_turns_for_session(db, session_id)
 
     raw_profile = get_student_profile(user_id)
     if raw_profile is None:
@@ -62,6 +66,7 @@ def create_report(
     report = generate_report(session, all_turns, profile)
 
     write_report(
+        db,
         {
             "session_id": session_id,
             "overall": report.overall,

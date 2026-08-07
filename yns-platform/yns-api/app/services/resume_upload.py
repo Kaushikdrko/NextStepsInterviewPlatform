@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models import Resume
 from app.services.profile_store import write_resume_extracted_text
 from app.services.resume_parser import parse_resume_pdf
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_storage import get_supabase_storage_client
 
 """Resume file bytes stay in Supabase Storage (not part of this migration —
 see docs/migration.md); only the ``resumes`` row (Cloud SQL) and the
@@ -31,7 +31,7 @@ def upload_and_store_resume(
     safe_name = _safe_file_name(file_name) or "resume"
     storage_path = f"{user_id}/{int(time.time() * 1000)}-{safe_name}"
 
-    get_supabase_client().storage.from_("resumes").upload(
+    get_supabase_storage_client().storage.from_("resumes").upload(
         storage_path,
         content,
         {
@@ -64,7 +64,9 @@ def try_parse_resume(resume: Resume) -> tuple[str, str | None]:
         return "skipped", "Resume uploaded. Automatic resume analysis currently supports PDF files only."
 
     try:
-        pdf_bytes = get_supabase_client().storage.from_("resumes").download(resume.storage_path)
+        pdf_bytes = get_supabase_storage_client().storage.from_("resumes").download(
+            resume.storage_path
+        )
         facts = parse_resume_pdf(pdf_bytes)
         write_resume_extracted_text(resume.id, facts.model_dump_json())
         return "parsed", None
