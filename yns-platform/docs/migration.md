@@ -141,18 +141,35 @@ anything else.
 
 ## Phase 4 — Prove it on staging (this is the gate)
 
-- [ ] An existing user logs in with their pre-migration password.
-- [ ] That user's token `uid` equals their `app_users.id`.
+- [x] An existing user logs in with their pre-migration password. Deployed
+      2026-08-06 (merged to `main`, `workflow_dispatch` after a GitHub
+      Actions outage blocked the automatic push-triggered deploy — see
+      DEPLOYMENT.md gotcha #1 below for a real bug this surfaced).
+- [x] That user's token `uid` equals their `app_users.id`. Confirmed via the
+      sign-in landing on `/dashboard` (not `/onboarding`), which only
+      happens when `GET /api/users/{uid}` succeeds for that exact uid.
 - [ ] That user sees only their own sessions/profile/resume (authz holds
       with no RLS).
-- [ ] A new sign-up + onboarding works end to end.
+- [ ] A new sign-up + onboarding works end to end. **Found a real bug**:
+      after uploading a resume mid-wizard, the Continue button stops
+      working — not yet root-caused.
 - [ ] A champion logs in and sees only their assigned students.
 - [ ] Rollback rehearsed: flipping config back to Supabase brings the old
       setup back.
 
-**Blocked until:** the Phase 3 branch is merged to `main` (triggers the
-staging deploy) — as of now it's on `cloudSQL+IdentityPlatformMigration`,
-1 commit ahead of `main`, not yet deployed.
+**Real bug found and fixed during this phase:** existing users were being
+sent back through onboarding on every login, even with a completed
+`app_users` row. Root cause: `yns-api-runtime` was never granted Identity
+Platform IAM permissions (only had `cloudsql.client`/
+`secretmanager.secretAccessor`/`aiplatform.user`) — `verify_id_token(...,
+check_revoked=True)`'s revocation lookup failed with a permission error,
+which `verify_firebase_token`'s blanket exception handler silently turned
+into a generic 401, indistinguishable from an actually-invalid token. Fixed
+by granting `roles/firebaseauth.admin` (project-level) and
+`roles/iam.serviceAccountTokenCreator` (self-binding, needed for
+`create_custom_token` in the OTP flow) — see DEPLOYMENT.md gotcha #1. Also
+added logging of the real exception before converting to the generic 401,
+so this doesn't silently repeat.
 
 ## Phase 5 — Production cutover (mentor approval required)
 

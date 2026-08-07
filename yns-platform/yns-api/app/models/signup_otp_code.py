@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Integer, String
@@ -10,7 +11,9 @@ from app.database import Base
 class SignupOtpCode(Base):
     __tablename__ = "signup_otp_codes"
 
-    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True)
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
     email: Mapped[str] = mapped_column(String, nullable=False, index=True)
     code_hash: Mapped[str] = mapped_column(String, nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
