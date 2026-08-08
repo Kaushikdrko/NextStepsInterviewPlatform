@@ -96,12 +96,19 @@ export function AuthFormCard({
 
           const result = await verifyOtp(pendingOtpEmail, cleanedCode, password);
 
-          if (!result.success || !result.custom_token) {
+          if (!result.success) {
             setError(result.error ?? 'Unable to verify your account. Please request a new code and try again.');
             return;
           }
 
-          await signInWithCustomToken(getFirebaseAuth(), result.custom_token);
+          if (result.custom_token) {
+            await signInWithCustomToken(getFirebaseAuth(), result.custom_token);
+          } else {
+            // TEMPORARY — local testing only, backend skips custom-token
+            // signing locally (see auth_otp.py). DO NOT COMMIT: this branch
+            // becomes dead once the backend always returns a token again.
+            await signInWithEmailAndPassword(getFirebaseAuth(), pendingOtpEmail, password);
+          }
           router.push('/onboarding');
           return;
         }

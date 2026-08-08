@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,7 +14,9 @@ class CareerProfile(Base):
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4())
     )
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("app_users.id"), nullable=False, index=True
+    )
     target_field: Mapped[str | None] = mapped_column(String, nullable=True)
     interview_type: Mapped[str | None] = mapped_column(String, nullable=True)
     skills: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
