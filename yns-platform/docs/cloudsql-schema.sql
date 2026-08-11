@@ -210,3 +210,20 @@ ALTER TABLE ONLY public.signup_otp_codes
     ADD CONSTRAINT signup_otp_codes_pkey PRIMARY KEY (id);
 
 CREATE INDEX signup_otp_codes_email_idx ON public.signup_otp_codes USING btree (email);
+
+-- Added for persisted dashboard goals.
+CREATE TABLE public.weekly_goals (
+    user_id uuid NOT NULL,
+    target_sessions integer DEFAULT 5 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT weekly_goals_target_sessions_check
+        CHECK (((target_sessions >= 1) AND (target_sessions <= 50)))
+);
+
+ALTER TABLE ONLY public.weekly_goals
+    ADD CONSTRAINT weekly_goals_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.weekly_goals
+    ADD CONSTRAINT weekly_goals_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES public.app_users(id) ON DELETE CASCADE;

@@ -1,6 +1,6 @@
-import type { IdTokenResult, User } from "firebase/auth";
+import { sendPasswordResetEmail, type IdTokenResult, type User } from "firebase/auth";
 
-import { hasChampionRole } from "@/lib/firebase/client";
+import { getFirebaseAuth, hasChampionRole } from "@/lib/firebase/client";
 import { apiFetch } from "@/lib/utils/api-client";
 
 export const MAIN_APP_ROUTE = "/dashboard";
@@ -15,6 +15,16 @@ type UserResponse = {
   id: string;
   onboarding_completed: boolean;
 };
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    throw new Error("Enter your email address first.");
+  }
+
+  await sendPasswordResetEmail(getFirebaseAuth(), normalizedEmail);
+}
 
 export async function getPostLoginRedirect(
   userId: string,

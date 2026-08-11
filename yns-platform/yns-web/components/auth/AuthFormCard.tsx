@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation';
 import { Mail, LockKeyhole, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
 
 import { signInWithCustomToken, signInWithEmailAndPassword } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/alert';
 import { getFirebaseAuth } from '@/lib/firebase/client';
-import { getPostLoginRedirect } from '@/lib/services/auth';
+import { getPostLoginRedirect, requestPasswordReset } from '@/lib/services/auth';
 import { API_BASE_URL } from '@/lib/utils/api-client';
 
 type OtpStartResponse = { success: boolean; error?: string };
@@ -66,6 +67,7 @@ export function AuthFormCard({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const Icon = mode === 'sign-in' ? LogIn : UserPlus;
   const isOtpStep = mode === 'sign-up' && Boolean(pendingOtpEmail);
 
@@ -172,6 +174,38 @@ export function AuthFormCard({
     setMessage(null);
   };
 
+  const handleForgotPassword = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const confirmationMessage = `If an account exists for ${normalizedEmail}, a password reset link has been sent. Check your inbox and spam folder.`;
+
+    setError(null);
+    setMessage(null);
+
+    if (!normalizedEmail) {
+      setError('Enter your email address first, then select Forgot password.');
+      return;
+    }
+
+    setIsSendingPasswordReset(true);
+
+    try {
+      await requestPasswordReset(normalizedEmail);
+      setMessage(confirmationMessage);
+    } catch (err) {
+      if (err instanceof FirebaseError && err.code === 'auth/user-not-found') {
+        setMessage(confirmationMessage);
+      } else if (err instanceof FirebaseError && err.code === 'auth/invalid-email') {
+        setError('Enter a valid email address.');
+      } else if (err instanceof FirebaseError && err.code === 'auth/too-many-requests') {
+        setError('Too many reset attempts. Wait a few minutes and try again.');
+      } else {
+        setError('Unable to send a password reset email right now. Please try again.');
+      }
+    } finally {
+      setIsSendingPasswordReset(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-lg space-y-6">
       <div className="space-y-4">
@@ -253,8 +287,13 @@ export function AuthFormCard({
                   icon={<LockKeyhole className="h-5 w-5" aria-hidden="true" />}
                   action={
                     mode === 'sign-in' ? (
-                      <button type="button" className="text-sm font-bold text-[#a92712] hover:text-[#8f200f]">
-                        Forgot password?
+                      <button
+                        type="button"
+                        className="text-sm font-bold text-[#a92712] hover:text-[#8f200f] disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => void handleForgotPassword()}
+                        disabled={isSubmitting || isSendingPasswordReset}
+                      >
+                        {isSendingPasswordReset ? 'Sending reset link...' : 'Forgot password?'}
                       </button>
                     ) : null
                   }
