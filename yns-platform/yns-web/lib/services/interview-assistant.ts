@@ -95,6 +95,22 @@ export type WeeklyProgressResponse = {
   items: WeeklyProgressItem[];
 };
 
+export type WeeklyGoalResponse = {
+  target_sessions: number;
+  completed_sessions: number;
+  percent_complete: number;
+  week_start: string;
+  week_end: string;
+};
+
+export type FocusAreaResponse = {
+  focus_area: string | null;
+  detail: string;
+  supporting_category: string | null;
+  average_recent_score: number | null;
+  report_count: number;
+};
+
 export type SessionTurnDetail = {
   turn_index: number;
   question: PlannedQuestion;
@@ -236,6 +252,21 @@ export function getDashboardStats() {
 
 export function getWeeklyProgress() {
   return assistantFetch<WeeklyProgressResponse>('/api/sessions/weekly-progress');
+}
+
+export function getWeeklyGoal() {
+  return assistantFetch<WeeklyGoalResponse>('/api/sessions/weekly-goal');
+}
+
+export function updateWeeklyGoal(targetSessions: number) {
+  return assistantFetch<WeeklyGoalResponse>('/api/sessions/weekly-goal', {
+    method: 'PUT',
+    body: JSON.stringify({ target_sessions: targetSessions }),
+  });
+}
+
+export function getFocusArea() {
+  return assistantFetch<FocusAreaResponse>('/api/sessions/focus-area');
 }
 
 export function getSessionDetail(sessionId: string) {

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.schemas.evaluation import TurnEvaluation
 from app.core.schemas.session import PlannedQuestion, SessionPlan
@@ -58,6 +58,26 @@ class WeeklyProgressItem(BaseModel):
 
 class WeeklyProgressResponse(BaseModel):
     items: list[WeeklyProgressItem]
+
+
+class WeeklyGoalUpdateRequest(BaseModel):
+    target_sessions: int = Field(ge=1, le=50)
+
+
+class WeeklyGoalResponse(BaseModel):
+    target_sessions: int
+    completed_sessions: int
+    percent_complete: int
+    week_start: datetime
+    week_end: datetime
+
+
+class FocusAreaResponse(BaseModel):
+    focus_area: str | None
+    detail: str
+    supporting_category: str | None
+    average_recent_score: float | None
+    report_count: int
 
 
 class SessionTurnDetail(BaseModel):

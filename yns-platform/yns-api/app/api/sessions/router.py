@@ -7,12 +7,15 @@ from app.api.sessions.models import (
     CreateSessionRequest,
     CreateSessionResponse,
     DashboardStatsResponse,
+    FocusAreaResponse,
     SessionDetailResponse,
     SessionListResponse,
     SessionSummary,
     SessionTurnDetail,
     SubmitTurnRequest,
     TurnResponse,
+    WeeklyGoalResponse,
+    WeeklyGoalUpdateRequest,
     WeeklyProgressResponse,
 )
 from app.core.assistants.evaluator import evaluate_turn
@@ -33,6 +36,7 @@ from app.services.profile_store import (
 from app.services.session_store import (
     get_last_n_turns,
     get_dashboard_stats_for_user,
+    get_focus_area_for_user,
     get_session_with_plan,
     get_sessions_for_user,
     get_weekly_progress_for_user,
@@ -41,6 +45,10 @@ from app.services.session_store import (
     update_session_status,
     write_session,
     write_turn,
+)
+from app.services.weekly_goals import (
+    get_weekly_goal_for_user,
+    update_weekly_goal_for_user,
 )
 
 router = APIRouter()
@@ -241,6 +249,27 @@ def get_dashboard_stats(user_id: str = Depends(get_current_student)):
 @router.get("/weekly-progress", response_model=WeeklyProgressResponse)
 def get_weekly_progress(user_id: str = Depends(get_current_student)):
     return WeeklyProgressResponse(items=get_weekly_progress_for_user(user_id))
+
+
+@router.get("/weekly-goal", response_model=WeeklyGoalResponse)
+def get_weekly_goal(user_id: str = Depends(get_current_student)):
+    return WeeklyGoalResponse(**get_weekly_goal_for_user(user_id))
+
+
+@router.put("/weekly-goal", response_model=WeeklyGoalResponse)
+def update_weekly_goal(
+    request: WeeklyGoalUpdateRequest,
+    user_id: str = Depends(get_current_student),
+):
+    try:
+        return WeeklyGoalResponse(**update_weekly_goal_for_user(user_id, request.target_sessions))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/focus-area", response_model=FocusAreaResponse)
+def get_focus_area(user_id: str = Depends(get_current_student)):
+    return FocusAreaResponse(**get_focus_area_for_user(user_id))
 
 
 @router.get("/{session_id}", response_model=SessionDetailResponse)

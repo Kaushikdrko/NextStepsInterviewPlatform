@@ -5,7 +5,7 @@
 
 -- Job-posting-aware planner (Phase 2): job_postings already exists from the
 -- onboarding phase; this adds a cache column for the parsed JobPostingFacts
--- so the planner only calls Claude once per posting. Apply directly to Supabase:
+-- so the planner only calls Gemini once per posting. Apply directly to Cloud SQL:
 -- alter table job_postings add column if not exists parsed_facts jsonb;
 
 create table interview_sessions (
@@ -41,4 +41,11 @@ create table session_reports (
     growth_areas jsonb not null,
     recommended_next_steps jsonb not null,
     generated_at timestamptz not null default now()
+);
+
+create table weekly_goals (
+    user_id uuid primary key references app_users(id) on delete cascade,
+    target_sessions int not null default 5 check (target_sessions between 1 and 50),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
 );

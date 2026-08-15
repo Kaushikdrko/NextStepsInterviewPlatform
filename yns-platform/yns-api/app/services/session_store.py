@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -228,6 +229,104 @@ def get_weekly_progress_for_user(user_id: str) -> list[dict[str, Any]]:
         days[created_date.weekday()]["questions"] += 1
 
     return days
+
+
+def _normalize_focus_area(value: str) -> str:
+    return " ".join(value.strip().lower().rstrip(".!?").split())
+
+
+def _format_category(value: str | None) -> str | None:
+    if not value:
+        return None
+    labels = {
+        "behavioral": "Behavioral storytelling",
+        "technical": "Technical depth",
+        "values": "Values alignment",
+    }
+    return labels.get(value, value.replace("_", " ").title())
+
+
+def get_focus_area_for_user(user_id: str) -> dict[str, Any]:
+    sessions = get_sessions_for_user(user_id, limit=12)
+    session_ids = [session["id"] for session in sessions]
+    if not session_ids:
+        return {
+            "focus_area": None,
+            "detail": "Complete an interview session to unlock a personalized focus area.",
+            "supporting_category": None,
+            "average_recent_score": None,
+            "report_count": 0,
+        }
+
+    with SessionLocal() as db:
+        reports = (
+            db.query(SessionReport).filter(SessionReport.session_id.in_(session_ids)).all()
+        )
+
+    if not reports:
+        return {
+            "focus_area": None,
+            "detail": "Generate feedback reports after sessions to find your biggest improvement area.",
+            "supporting_category": None,
+            "average_recent_score": None,
+            "report_count": 0,
+        }
+
+    focus_counts: Counter[str] = Counter()
+    display_names: dict[str, str] = {}
+    category_scores: dict[str, list[float]] = {}
+    overall_scores: list[float] = []
+
+    for report in reports:
+        overall_scores.append(float(report.overall))
+        for area in report.growth_areas or []:
+            if not isinstance(area, str):
+                continue
+            normalized = _normalize_focus_area(area)
+            if normalized:
+                focus_counts[normalized] += 1
+                display_names.setdefault(normalized, area.strip().rstrip(".!?"))
+
+        for category in report.category_breakdown or []:
+            if not isinstance(category, dict):
+                continue
+            name = category.get("category")
+            score = category.get("score")
+            if isinstance(name, str) and isinstance(score, (int, float)):
+                category_scores.setdefault(name, []).append(float(score))
+
+    focus_area = None
+    if focus_counts:
+        normalized_focus = focus_counts.most_common(1)[0][0]
+        focus_area = display_names.get(normalized_focus, normalized_focus.title())
+
+    supporting_category = None
+    if category_scores:
+        weakest_category = min(
+            category_scores.items(), key=lambda item: sum(item[1]) / len(item[1])
+        )[0]
+        supporting_category = _format_category(weakest_category)
+
+    average_recent_score = round(sum(overall_scores) / len(overall_scores), 1)
+    if focus_area and supporting_category:
+        detail = (
+            f"Most reports point to {focus_area}; your lowest scoring category is "
+            f"{supporting_category}."
+        )
+    elif focus_area:
+        detail = f"Most reports point to {focus_area} as your main improvement area."
+    elif supporting_category:
+        detail = f"Your lowest scoring category is {supporting_category}."
+    else:
+        detail = "Keep completing feedback reports to identify a clearer trend."
+
+    return {
+        "focus_area": focus_area or supporting_category,
+        "detail": detail,
+        "supporting_category": supporting_category,
+        "average_recent_score": average_recent_score,
+        "report_count": len(reports),
+    }
 
 
 def get_session_with_plan(session_id: str) -> dict[str, Any] | None:

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { ChartNoAxesCombined } from 'lucide-react';
 
 import { getWeeklyProgress, type WeeklyProgressItem } from '@/lib/services/interview-assistant';
 
@@ -77,52 +77,48 @@ export function PracticeProgressGraph() {
   }, [maxQuestions, weeklyProgress]);
 
   return (
-    <section className="rounded-[10px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-base font-bold text-slate-950">Practice Progress</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Questions answered this week</p>
+    <section className="rounded-[14px] border border-[#e7dbd0] bg-white p-5 shadow-[0_2px_5px_rgba(78,45,31,0.05)]">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <ChartNoAxesCombined className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
+          <h2 className="text-sm font-extrabold text-[#271f1b]">Weekly progress</h2>
         </div>
 
-        <div className="inline-flex items-center gap-2 self-start rounded-lg bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-600">
-          <TrendingUp className="h-4 w-4" aria-hidden="true" />
-          {totalQuestions} this week
-        </div>
+        <span className="rounded-full bg-[#fff2ed] px-3 py-1 text-xs font-extrabold text-[#ad2d1f]">
+          {totalQuestions} questions answered
+        </span>
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-        <svg className="h-[230px] w-full" viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`} role="img" aria-label="Practice progress chart">
+      <div className="mt-3 overflow-hidden">
+        <svg className="h-[255px] w-full" viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`} role="img" aria-label="Questions answered each day this week">
           <defs>
             <linearGradient id="practice-progress-area" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#ffcc3d" stopOpacity="0.26" />
-              <stop offset="100%" stopColor="#ffcc3d" stopOpacity="0" />
+              <stop offset="0%" stopColor="#ad2d1f" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#ad2d1f" stopOpacity="0" />
             </linearGradient>
           </defs>
 
           {[0, 1, 2, 3].map((line) => {
             const y = chartPadding + line * ((chartHeight - chartPadding * 2) / 3);
 
-            return <line key={line} x1={chartPadding} x2={chartWidth - chartPadding} y1={y} y2={y} stroke="#e2e8f0" strokeWidth="1" />;
+            return <line key={line} x1={chartPadding} x2={chartWidth - chartPadding} y1={y} y2={y} stroke="#eee5de" strokeWidth="1" />;
           })}
 
           <path d={areaPath} fill="url(#practice-progress-area)" />
-          <path d={linePath} fill="none" stroke="#a92712" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+          <path d={linePath} fill="none" stroke="#ad2d1f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
 
           {points.map((point, index) => (
             <g key={weeklyProgress[index].day}>
-              <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#a92712" strokeWidth="3" />
-              <text x={point.x} y={chartHeight + 16} textAnchor="middle" className="fill-slate-500 text-[12px] font-bold">
+              <circle cx={point.x} cy={point.y} r="5" fill="#ffffff" stroke="#ad2d1f" strokeWidth="3" />
+              <text x={point.x} y={Math.max(15, point.y - 11)} textAnchor="middle" className="fill-[#8a7c75] text-[11px] font-bold">
+                {weeklyProgress[index].questions}
+              </text>
+              <text x={point.x} y={chartHeight + 16} textAnchor="middle" className="fill-[#8a7c75] text-[12px] font-bold">
                 {weeklyProgress[index].day}
               </text>
             </g>
           ))}
         </svg>
-
-        <div className="flex items-center justify-center border-t border-slate-200 pt-4 text-center text-sm font-semibold text-slate-500">
-          {totalQuestions > 0
-            ? 'Your weekly progress reflects questions answered this week.'
-            : 'Your progress will update here once you start completing practice questions.'}
-        </div>
       </div>
     </section>
   );

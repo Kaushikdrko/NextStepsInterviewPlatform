@@ -5,6 +5,7 @@ from app.models.resume import Resume
 from app.models.session import InterviewSession, InterviewTurn, SessionReport
 from app.models.signup_otp_code import SignupOtpCode
 from app.models.user import AppUser
+from app.models.weekly_goal import WeeklyGoal
 
 __all__ = [
     "AppUser",
@@ -16,4 +17,5 @@ __all__ = [
     "Resume",
     "SessionReport",
     "SignupOtpCode",
+    "WeeklyGoal",
 ]

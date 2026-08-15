@@ -4,18 +4,12 @@ from typing import Any
 from app.core.schemas.student import JobPostingFacts, ResumeFacts, StudentProfile
 from app.database import SessionLocal
 from app.models import AppUser, CareerProfile, JobPosting, Resume
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_storage import get_supabase_storage_client
 
-"""SQLAlchemy/Cloud SQL access for the onboarding-domain tables (app_users,
-career_profiles, job_postings, resumes) shared by the onboarding routers and
-the AI assistants. Deliberately mirrors the call signatures the old
-supabase_client.py versions had, so sessions/router.py and resume/router.py
-only needed an import swap. interview_sessions/interview_turns/session_reports
-are a separate domain and stay in supabase_client.py on Supabase — see
-docs/migration.md Phase 3.
+"""Cloud SQL access for profile, job-posting, and resume metadata.
 
-Resume *file bytes* still live in Supabase Storage (not part of this
-migration); only the Postgres metadata/extracted_text moved here.
+Resume file bytes remain in the legacy storage bucket for now; all relational
+profile and interview data is stored in Cloud SQL.
 """
 
 
@@ -137,7 +131,9 @@ def download_resume_bytes(user_id: str, resume_id: str | None = None) -> tuple[d
             "extracted_text": resume.extracted_text,
         }
 
-    pdf_bytes = get_supabase_client().storage.from_("resumes").download(resume_dict["storage_path"])
+    pdf_bytes = get_supabase_storage_client().storage.from_("resumes").download(
+        resume_dict["storage_path"]
+    )
     return resume_dict, pdf_bytes
 
 
