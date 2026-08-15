@@ -1,18 +1,5 @@
 # Your Next Steps (YNS) — Interview Platform
 
-**Your Next Steps** is a nonprofit career mentorship platform, founded by Dr.
-Klyne Smith, that helps students practice interviews using AI
-assistants tailored to their resume, career stage, and goals.
-
-Unlike recording-booth tools like Big Interview or Quinncia, YNS doesn't score
-delivery — filler words, eye contact, pacing. Every question and every piece of
-feedback orbits one question: **"What problem do you want to solve?"** The AI
-scores substance (specificity, self-awareness, passion alignment), never
-speaking style, and writes feedback in a warm, direct mentor voice with real
-quotes from the student's own answers — never generic praise.
-
-## What's here
-
 Four workflows, all built with a real backend (no mock data):
 
 - **Onboarding** — a guided wizard (career or high-school track) that captures
