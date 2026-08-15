@@ -111,8 +111,24 @@ anything else.
       and migrating the AI layer's access to those tables onto the same
       Cloud SQL path (`app/services/profile_store.py`).
       `interview_sessions`/`interview_turns`/`session_reports` deliberately
-      stay on Supabase — separate domain, already a known reconciliation
-      item. Resume file bytes stay in Supabase Storage either way.
+      stayed on Supabase at the time — separate domain, tracked as a known
+      reconciliation item. **Reconciled ahead of schedule on 2026-08-15**:
+      this turned out to be a live blocker, not just cleanup — Supabase's
+      `interview_sessions.user_id` FK pointed at Supabase's own frozen
+      `app_users` snapshot, so any user who signed up post-migration could
+      never create a session (FK violation on every attempt). Fixed by
+      moving these three tables onto Cloud SQL (`app/services/session_store.py`,
+      same dict-return pattern as `profile_store.py`) — they were already
+      present in `docs/cloudsql-schema.sql` from the original Phase 1 dump,
+      just never wired up for reads/writes. Data was re-copied fresh from
+      Supabase (the live source) rather than reconciled row-by-row; one
+      orphaned Cloud SQL session (pre-existing, not in Supabase) was dropped
+      in the process. This also fixed a second latent bug: the Champion
+      Dashboard's aggregate queries (`app/api/champion/service.py`) already
+      read from Cloud SQL's copy of these tables, so it had been silently
+      serving stale Phase-1 data the whole time. Resume file bytes stay in
+      Supabase Storage either way — `app/services/supabase_client.py` is now
+      Storage-only.
 - [x] **Config/secrets:** dropped `pyjwt`/`certifi`/dead `anthropic` line;
       added `firebase-admin`/`resend`/`python-multipart`. `RESEND_API_KEY`
       in Secret Manager, wired into `deploy.yml`. Added `GCP_PROJECT_ID`
@@ -130,8 +146,7 @@ anything else.
 - [x] **Set `staging` GitHub Environment variables**: added
       `NEXT_PUBLIC_FIREBASE_API_KEY`/`_AUTH_DOMAIN`/`_PROJECT_ID`; removed
       the old `NEXT_PUBLIC_SUPABASE_*` vars. `SUPABASE_URL` (no
-      `NEXT_PUBLIC_` prefix) stays — still used for Storage +
-      `interview_sessions`/`interview_turns`/`session_reports`.
+      `NEXT_PUBLIC_` prefix) stays — still used for Storage.
 - [ ] **Verify a real sender domain in Resend.** Currently the sandbox
       address `onboarding@resend.dev`, which only delivers to the account
       owner's own verified email — real users won't get codes until a real

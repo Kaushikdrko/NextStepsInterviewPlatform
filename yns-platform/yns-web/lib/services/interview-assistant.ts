@@ -183,7 +183,7 @@ export function getAssistantSessionType(mode: string): AssistantSessionType | nu
     return mode;
   }
 
-  if (mode === 'general') {
+  if (mode === 'general' || mode === 'job_posting') {
     return 'mixed';
   }
 

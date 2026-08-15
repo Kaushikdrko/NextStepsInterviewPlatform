@@ -30,7 +30,7 @@ from app.services.profile_store import (
     write_job_posting_parsed_facts,
     write_resume_extracted_text,
 )
-from app.services.supabase_client import (
+from app.services.session_store import (
     get_last_n_turns,
     get_dashboard_stats_for_user,
     get_session_with_plan,

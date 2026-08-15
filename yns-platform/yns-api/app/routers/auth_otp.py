@@ -63,11 +63,6 @@ def start_otp(body: OtpStartRequest, db: Session = Depends(get_db)) -> OtpStartR
     )
     db.commit()
 
-    # TEMPORARY — local testing only, no Resend domain verified yet.
-    # DO NOT COMMIT: revert to the send_otp_email() call below before pushing.
-    print(f"\n{'=' * 40}\nOTP for {email}: {code}\n{'=' * 40}\n")
-    return OtpStartResponse(success=True)
-
     try:
         send_otp_email(email, code)
     except Exception as exc:
@@ -114,11 +109,6 @@ def verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)) -> OtpVeri
         )
     except firebase_auth.EmailAlreadyExistsError:
         return OtpVerifyResponse(success=False, error="An account with this email already exists.")
-
-    # TEMPORARY — local testing only, custom-token signing needs real
-    # service-account credentials that don't exist for local `gcloud` ADC.
-    # DO NOT COMMIT: revert to the two lines below before pushing.
-    return OtpVerifyResponse(success=True, custom_token=None)
 
     custom_token = firebase_auth.create_custom_token(user.uid, app=get_firebase_app())
     return OtpVerifyResponse(success=True, custom_token=custom_token.decode("utf-8"))

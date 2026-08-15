@@ -44,8 +44,8 @@ quotes — never generic ("good communication skills" fails the bar).
 | Auth | Firebase Auth / Google Identity Platform (email + password), via the Firebase JS SDK (`yns-web/lib/firebase/client.ts`) and `firebase-admin` (`yns-api`). Staging only — see migration status above. |
 | AI service | FastAPI (Python 3.12) |
 | LLM | Gemini Flash-Lite via Vertex AI (`gemini-2.5-flash-lite`, confirm current GA ID before assuming this is still current) |
-| Database | Cloud SQL Postgres 15 (`yns-interview-postgres`, staging), no RLS — `require_*` dependency checks in `app/dependencies.py` are the sole authorization layer. `interview_sessions`/`interview_turns`/`session_reports` are still on Supabase Postgres (service-role, separate domain, not yet reconciled — see migration.md). |
-| Storage | Supabase Storage, bucket `resumes` — deliberately not part of the Cloud SQL/Identity Platform migration |
+| Database | Cloud SQL Postgres 15 (`yns-interview-postgres`, staging), no RLS — `require_*` dependency checks in `app/dependencies.py` are the sole authorization layer. Every table, including `interview_sessions`/`interview_turns`/`session_reports`, lives here now. |
+| Storage | Supabase Storage, bucket `resumes` — the only thing still on Supabase; deliberately not part of the Cloud SQL/Identity Platform migration |
 | Hosting | Cloud Run, both apps (staging: `yns-interview-staging`; prod: `yns-interview-platform`) |
 
 **Rules:** `google-genai` SDK only lives in `yns-api/` — never import it in
@@ -80,12 +80,11 @@ onboarding_status     tracks wizard completion
 signup_otp_codes     sign-up email-verification codes (hashed, 10 min TTL) — not
                       part of the original Supabase schema, added in Phase 3
 interview_sessions   user_id, session_type, status, session_plan (jsonb SessionPlan),
-                      started_at, completed_at — still Supabase Postgres, see below
+                      started_at, completed_at
 interview_turns      session_id, turn_index, question (jsonb), answer_text,
-                      evaluation (jsonb), unique(session_id, turn_index) — Supabase
+                      evaluation (jsonb), unique(session_id, turn_index)
 session_reports      session_id (PK), overall, category_breakdown, strengths,
-                      growth_areas, recommended_next_steps (jsonb), generated_at —
-                      Supabase
+                      growth_areas, recommended_next_steps (jsonb), generated_at
 ```
 
 No RLS on Cloud SQL (it's a Supabase-only feature, `auth.uid()` doesn't
@@ -96,16 +95,16 @@ underneath to catch a miss, so any new endpoint needs one of those
 dependencies explicitly (see migration.md's Phase 3 authz audit for how this
 was verified across every existing endpoint).
 
-**`app_users`/`career_profiles`/`job_postings`/`resumes`/`onboarding_status`
-are on Cloud SQL** — both `yns-api`'s onboarding/champion routers
-(SQLAlchemy/`DATABASE_URL`, `app/services/profile_store.py` for the
-AI-routers' access to these same tables) and `yns-web`'s writes (via
-`POST /api/onboarding/submit`, `POST /api/resumes`, `POST /api/job-postings`
-— no more direct Postgres access from the frontend at all). **`interview_sessions`/
-`interview_turns`/`session_reports` are still on Supabase Postgres**
-(`app/services/supabase_client.py`, service-role key) — a separate domain,
-deliberately not migrated yet, tracked as an open item. Resume *file bytes*
-live in Supabase Storage either way (not part of this migration).
+**Every table is on Cloud SQL** — `app_users`/`career_profiles`/`job_postings`/
+`resumes`/`onboarding_status` (SQLAlchemy/`DATABASE_URL`,
+`app/services/profile_store.py` for the AI-routers' access to these tables)
+plus `interview_sessions`/`interview_turns`/`session_reports`
+(`app/services/session_store.py`, same pattern). `yns-web`'s writes go
+through `yns-api` endpoints (`POST /api/onboarding/submit`,
+`POST /api/resumes`, `POST /api/job-postings` — no direct Postgres access
+from the frontend at all). Resume *file bytes* still live in Supabase
+Storage (not part of this migration) — `app/services/supabase_client.py` is
+now Storage-only.
 
 ---
 
@@ -174,7 +173,7 @@ plain SQLAlchemy. All now require a Firebase bearer token
 ## Interview assistants (`yns-api/app/core/assistants/`)
 
 Each is a typed Python function returning a validated Pydantic model, sharing
-data through Supabase (not direct calls between each other).
+data through Cloud SQL (not direct calls between each other).
 
 1. **`planner.py` — question planner.** Input: `StudentProfile` + resume
    facts, `session_type` (behavioral|technical|mixed). Output: `SessionPlan`
@@ -352,8 +351,8 @@ Unlike the dashboard stats, this is **real backend data, not localStorage**:
 `lib/services/interview-assistant.ts` call `GET /api/sessions/` and `GET
 /api/sessions/{id}` with a Firebase bearer token.
 `yns-api/app/api/sessions/router.py` (`list_sessions`, `get_session_detail`)
-reads via `supabase-py`/service role (`get_sessions_for_user`,
-`get_turns_for_session` in `app/services/supabase_client.py`), with an
+reads via SQLAlchemy/Cloud SQL (`get_sessions_for_user`,
+`get_turns_for_session` in `app/services/session_store.py`), with an
 ownership check (`_get_owned_session`) so one user can't fetch another's
 session by id.
 
@@ -445,10 +444,9 @@ a stored duration.
    Supabase" pattern entirely, not just for writes.
 6. **`require_*` dependency checks are the *only* authorization layer —
    there is no RLS anywhere in this stack anymore for the tables that
-   matter for authz.** Cloud SQL has none (not a feature it has); the
-   Supabase tables still in use (`interview_sessions`/`interview_turns`/
-   `session_reports`) are accessed via `supabase-py` + service role, which
-   bypasses RLS the same way `BYPASSRLS` did before. Every endpoint must
+   matter for authz.** Cloud SQL doesn't have RLS as a feature at all — every
+   table, including `interview_sessions`/`interview_turns`/`session_reports`,
+   is reachable by any query the app code writes. Every endpoint must
    explicitly enforce ownership/role via `app/dependencies.py`'s
    `get_current_student`/`require_admin_user`/`require_champion_user`/
    `require_user_ownership` — there is nothing underneath to catch a miss.
@@ -506,23 +504,16 @@ pytest tests/integration -v        # real Gemini Flash-Lite API, requires
 - **Database/auth migration off Supabase → Cloud SQL + Google Identity
   Platform** — Phases 0-3 are written as of 2026-08-06 (see
   `docs/migration.md` for full detail), but **Phase 3 isn't actually live
-  yet** — three manual steps are still outstanding: apply
-  `docs/migrations/002_signup_otp_codes.sql` to Cloud SQL, set the `staging`
-  GitHub Environment's `NEXT_PUBLIC_FIREBASE_*` variables (and remove the
-  old Supabase ones), and verify a real sender domain in Resend (currently
-  the sandbox address, which only delivers to the account owner). Phase 4
-  (prove it on staging) can't start for real until those are done.
+  yet** — the branch hasn't been merged to `main`, and a real sender domain
+  in Resend still isn't verified (currently the sandbox address, which only
+  delivers to the account owner). Phase 4 (prove it on staging) can't start
+  for real until both are done.
 - Delete or archive the dead code listed above (`app/sessions/[id]/*`,
   `components/interview/*`, `components/report/*`, empty
   `app/actions/session.ts`). (`lib/services/onboarding.ts` was deleted in
   Phase 3.)
 - Dashboard stats are `localStorage`-only — no server-side practice history,
   so nothing syncs across devices/browsers.
-- Reconcile `yns-api`'s two remaining DB-access patterns: Cloud SQL/SQLAlchemy
-  for everything in the onboarding domain (as of Phase 3) vs.
-  `supabase-py`/service-role for `interview_sessions`/`interview_turns`/
-  `session_reports`. Both are authenticated; this is about having one
-  database, not about security.
 - `middleware.ts` protects `/onboarding`, `/dashboard`, `/sessions`,
   `/champion` — `/history`, `/profile`, `/settings` still aren't in
   `PROTECTED_PREFIXES` and are reachable without a session at the route
