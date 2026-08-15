@@ -118,7 +118,33 @@ gcloud projects add-iam-policy-binding yns-interview-staging \
 
 ## Gotchas hit while standing this up (read before debugging a failed deploy)
 
-1. **CORS breaks silently as "failed to fetch" in the browser, not a visible
+1. **`yns-api-runtime` needs Identity Platform IAM permissions, not just
+   `roles/cloudsql.client`/`secretmanager.secretAccessor`/`aiplatform.user`.**
+   Found in Phase 4 verification (2026-08-06): `verify_id_token(...,
+   check_revoked=True)` in `app/middleware/auth.py` needs to look up the
+   user's revocation status server-side, which needs `roles/firebaseauth.admin`
+   on the runtime service account. Without it, the Admin SDK call fails and
+   `verify_firebase_token`'s blanket `except Exception: raise
+   HTTPException(401)` silently turns that permission error into a
+   misleading "invalid token" 401 — every authenticated request looked like
+   a bad token when it was actually a missing IAM grant. **This won't show
+   up in local testing** if you're using your own `gcloud` ADC credentials
+   (broad project access masks the gap) — only the actual deployed service
+   account is affected. Also grant `roles/iam.serviceAccountTokenCreator` on
+   `yns-api-runtime` *to itself* (self-binding) — needed for
+   `create_custom_token` (the sign-up OTP flow) to self-sign without a raw
+   private key:
+   ```bash
+   gcloud projects add-iam-policy-binding yns-interview-staging \
+     --member="serviceAccount:yns-api-runtime@yns-interview-staging.iam.gserviceaccount.com" \
+     --role="roles/firebaseauth.admin" --condition=None
+
+   gcloud iam service-accounts add-iam-policy-binding \
+     yns-api-runtime@yns-interview-staging.iam.gserviceaccount.com \
+     --member="serviceAccount:yns-api-runtime@yns-interview-staging.iam.gserviceaccount.com" \
+     --role="roles/iam.serviceAccountTokenCreator" --project=yns-interview-staging
+   ```
+2. **CORS breaks silently as "failed to fetch" in the browser, not a visible
    backend error.** `yns-api`'s CORS `allow_origins` comes from
    `FRONTEND_URL` (`app/config.py` → `cors_origins`). If it doesn't exactly
    match the deployed web origin, every browser call to the API (resume
@@ -136,21 +162,21 @@ gcloud projects add-iam-policy-binding yns-interview-staging \
    and then keep the GitHub variable in sync so future deploys don't regress
    it back to a placeholder.
 
-2. **`gcloud run deploy yns-web` fails with `iam.serviceaccounts.actAs
+3. **`gcloud run deploy yns-web` fails with `iam.serviceaccounts.actAs
    denied`** if no `--service-account` is passed — it silently falls back to
    the project's default compute service account, which `github-deployer`
    was never granted `roles/iam.serviceAccountUser` on. Fix: pass
    `--service-account "$RUNTIME_SA"` explicitly (same account the API uses;
    `github-deployer` already has `actAs` on it from the original setup).
 
-3. **Cloud Run's health check failure looks identical whether the container
+4. **Cloud Run's health check failure looks identical whether the container
    crashed on missing config or the Dockerfile itself is broken** — both show
    up as `HealthCheckContainerError` / "container failed to start and listen
    on $PORT". Check `gcloud run services describe <svc> --format="yaml(status.conditions)"`
    for the human-readable message, and `gcloud logging read` for the
    revision to see the actual Python/Node traceback.
 
-4. **`yns-api/app/database.py` raises at import time** if `DATABASE_URL` is
+5. **`yns-api/app/database.py` raises at import time** if `DATABASE_URL` is
    unset — this is *why* a container with no env vars never even starts
    listening (the exception happens before uvicorn binds the port). Any
    "container failed to start" failure on `yns-api` should first be checked

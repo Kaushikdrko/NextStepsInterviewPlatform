@@ -2,7 +2,6 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 
 from app.api.sessions.models import (
     CreateSessionRequest,
@@ -24,7 +23,6 @@ from app.core.assistants.interviewer import get_interviewer_response
 from app.core.assistants.job_posting_parser import parse_job_posting_text
 from app.core.assistants.planner import plan_session
 from app.core.schemas.session import PlannedQuestion
-from app.database import get_db
 from app.services.resume_parser import parse_resume_pdf
 from app.dependencies import get_current_student
 from app.services.profile_store import (
@@ -35,7 +33,7 @@ from app.services.profile_store import (
     write_job_posting_parsed_facts,
     write_resume_extracted_text,
 )
-from app.services.interview_store import (
+from app.services.session_store import (
     get_last_n_turns,
     get_dashboard_stats_for_user,
     get_focus_area_for_user,
@@ -125,8 +123,8 @@ def _ensure_resume_ready_for_session(user_id: str) -> None:
         ) from exc
 
 
-def _get_owned_session(db: Session, session_id: str, user_id: str) -> dict:
-    session = get_session_with_plan(db, session_id)
+def _get_owned_session(session_id: str, user_id: str) -> dict:
+    session = get_session_with_plan(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     if session["user_id"] != user_id:
@@ -207,24 +205,19 @@ def _session_duration_minutes(session: dict) -> int | None:
 def list_sessions(
     q: str | None = Query(default=None, max_length=120),
     user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
 ):
-    sessions = get_sessions_for_user(db, user_id)
+    sessions = get_sessions_for_user(user_id)
     turns_by_session: dict[str, list[dict]] = {}
     has_query = bool(q and q.strip())
 
     if has_query:
-        all_turns = get_turns_for_sessions(db, [session["id"] for session in sessions])
+        all_turns = get_turns_for_sessions([session["id"] for session in sessions])
         for turn in all_turns:
             turns_by_session.setdefault(turn["session_id"], []).append(turn)
 
     summaries = []
     for session in sessions:
-        turns = (
-            turns_by_session.get(session["id"], [])
-            if has_query
-            else get_turns_for_session(db, session["id"])
-        )
+        turns = turns_by_session.get(session["id"], []) if has_query else get_turns_for_session(session["id"])
         if has_query and not _session_matches_query(session, turns, q or ""):
             continue
 
@@ -249,59 +242,43 @@ def list_sessions(
 
 
 @router.get("/stats", response_model=DashboardStatsResponse)
-def get_dashboard_stats(
-    user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
-):
-    return DashboardStatsResponse(**get_dashboard_stats_for_user(db, user_id))
+def get_dashboard_stats(user_id: str = Depends(get_current_student)):
+    return DashboardStatsResponse(**get_dashboard_stats_for_user(user_id))
 
 
 @router.get("/weekly-progress", response_model=WeeklyProgressResponse)
-def get_weekly_progress(
-    user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
-):
-    return WeeklyProgressResponse(items=get_weekly_progress_for_user(db, user_id))
+def get_weekly_progress(user_id: str = Depends(get_current_student)):
+    return WeeklyProgressResponse(items=get_weekly_progress_for_user(user_id))
 
 
 @router.get("/weekly-goal", response_model=WeeklyGoalResponse)
-def get_weekly_goal(
-    user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
-):
-    return WeeklyGoalResponse(**get_weekly_goal_for_user(db, user_id))
+def get_weekly_goal(user_id: str = Depends(get_current_student)):
+    return WeeklyGoalResponse(**get_weekly_goal_for_user(user_id))
 
 
 @router.put("/weekly-goal", response_model=WeeklyGoalResponse)
 def update_weekly_goal(
     request: WeeklyGoalUpdateRequest,
     user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
 ):
     try:
-        return WeeklyGoalResponse(
-            **update_weekly_goal_for_user(db, user_id, request.target_sessions)
-        )
+        return WeeklyGoalResponse(**update_weekly_goal_for_user(user_id, request.target_sessions))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/focus-area", response_model=FocusAreaResponse)
-def get_focus_area(
-    user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
-):
-    return FocusAreaResponse(**get_focus_area_for_user(db, user_id))
+def get_focus_area(user_id: str = Depends(get_current_student)):
+    return FocusAreaResponse(**get_focus_area_for_user(user_id))
 
 
 @router.get("/{session_id}", response_model=SessionDetailResponse)
 def get_session_detail(
     session_id: str,
     user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
 ):
-    session = _get_owned_session(db, session_id, user_id)
-    turns = get_turns_for_session(db, session_id)
+    session = _get_owned_session(session_id, user_id)
+    turns = get_turns_for_session(session_id)
 
     return SessionDetailResponse(
         session_id=session["id"],
@@ -326,7 +303,6 @@ def get_session_detail(
 def create_session(
     body: CreateSessionRequest,
     user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
 ):
     if body.session_type == "resume":
         _ensure_resume_ready_for_session(user_id)
@@ -335,7 +311,6 @@ def create_session(
     plan = plan_session(profile, body.session_type)
 
     row = write_session(
-        db,
         {
             "user_id": user_id,
             "session_type": _storage_session_type(body.session_type),
@@ -352,9 +327,8 @@ def submit_turn(
     session_id: str,
     body: SubmitTurnRequest,
     user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
 ):
-    session = _get_owned_session(db, session_id, user_id)
+    session = _get_owned_session(session_id, user_id)
     profile = _load_profile(user_id)
 
     questions = session["session_plan"]["questions"]
@@ -362,7 +336,7 @@ def submit_turn(
 
     recent_turns = [
         {"question": t["question"]["text"], "answer": t["answer_text"]}
-        for t in get_last_n_turns(db, session_id, n=3)
+        for t in get_last_n_turns(session_id, n=3)
     ]
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -374,7 +348,6 @@ def submit_turn(
         evaluator_result = f_evaluator.result()
 
     write_turn(
-        db,
         {
             "session_id": session_id,
             "turn_index": body.turn_index,
@@ -386,7 +359,7 @@ def submit_turn(
 
     next_index = body.turn_index + 1
     if next_index >= len(questions):
-        update_session_status(db, session_id, "completed")
+        update_session_status(session_id, "completed")
         next_question = None
         session_complete = True
     else:
@@ -407,8 +380,7 @@ def update_session(
     session_id: str,
     body: dict,
     user_id: str = Depends(get_current_student),
-    db: Session = Depends(get_db),
 ):
-    _get_owned_session(db, session_id, user_id)
-    update_session_status(db, session_id, body["status"])
+    _get_owned_session(session_id, user_id)
+    update_session_status(session_id, body["status"])
     return {"success": True}

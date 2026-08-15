@@ -15,5 +15,5 @@ class AppUser(Base):
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     user_type: Mapped[str] = mapped_column(String, nullable=False)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
