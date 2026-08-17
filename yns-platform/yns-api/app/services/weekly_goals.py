@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy.orm import Session
-
+from app.database import SessionLocal
 from app.models import WeeklyGoal
-from app.services.interview_store import get_sessions_for_user
+from app.services.session_store import get_sessions_for_user
 
 DEFAULT_TARGET_SESSIONS = 5
 MIN_TARGET_SESSIONS = 1
@@ -36,9 +35,9 @@ def _parse_datetime(value: Any) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def _completed_sessions_this_week(db: Session, user_id: str) -> int:
+def _completed_sessions_this_week(user_id: str) -> int:
     week_start, week_end = _current_week_bounds()
-    completed_sessions = get_sessions_for_user(db, user_id)
+    completed_sessions = get_sessions_for_user(user_id)
 
     return sum(
         1
@@ -48,9 +47,9 @@ def _completed_sessions_this_week(db: Session, user_id: str) -> int:
     )
 
 
-def _build_response(db: Session, user_id: str, target_sessions: int) -> dict[str, Any]:
+def _build_response(user_id: str, target_sessions: int) -> dict[str, Any]:
     week_start, week_end = _current_week_bounds()
-    completed_sessions = _completed_sessions_this_week(db, user_id)
+    completed_sessions = _completed_sessions_this_week(user_id)
     percent_complete = min(100, round((completed_sessions / target_sessions) * 100))
 
     return {
@@ -62,24 +61,26 @@ def _build_response(db: Session, user_id: str, target_sessions: int) -> dict[str
     }
 
 
-def get_weekly_goal_for_user(db: Session, user_id: str) -> dict[str, Any]:
-    goal = db.get(WeeklyGoal, user_id)
-    target_sessions = goal.target_sessions if goal is not None else DEFAULT_TARGET_SESSIONS
+def get_weekly_goal_for_user(user_id: str) -> dict[str, Any]:
+    with SessionLocal() as db:
+        goal = db.get(WeeklyGoal, user_id)
+        target_sessions = goal.target_sessions if goal is not None else DEFAULT_TARGET_SESSIONS
 
-    return _build_response(db, user_id, target_sessions)
+    return _build_response(user_id, target_sessions)
 
 
-def update_weekly_goal_for_user(db: Session, user_id: str, target_sessions: int) -> dict[str, Any]:
+def update_weekly_goal_for_user(user_id: str, target_sessions: int) -> dict[str, Any]:
     if target_sessions < MIN_TARGET_SESSIONS or target_sessions > MAX_TARGET_SESSIONS:
         raise ValueError("Weekly goal must be between 1 and 50 sessions.")
 
-    goal = db.get(WeeklyGoal, user_id)
-    if goal is None:
-        goal = WeeklyGoal(user_id=user_id, target_sessions=target_sessions)
-        db.add(goal)
-    else:
-        goal.target_sessions = target_sessions
+    with SessionLocal() as db:
+        goal = db.get(WeeklyGoal, user_id)
+        if goal is None:
+            goal = WeeklyGoal(user_id=user_id, target_sessions=target_sessions)
+            db.add(goal)
+        else:
+            goal.target_sessions = target_sessions
 
-    db.commit()
+        db.commit()
 
-    return _build_response(db, user_id, target_sessions)
+    return _build_response(user_id, target_sessions)

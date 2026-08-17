@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -48,6 +49,7 @@ def upload_and_store_resume(
         mime_type=mime_type,
         file_size=len(content),
         extracted_text=None,
+        created_at=datetime.now(timezone.utc),
     )
     db.add(resume)
     db.commit()

@@ -49,13 +49,21 @@ def submit_onboarding(
 
         app_user = db.get(AppUser, user_id)
         if app_user is None:
-            app_user = AppUser(id=user_id, email=email)
+            app_user = AppUser(id=user_id, email=email, created_at=now)
             db.add(app_user)
         app_user.email = email
         app_user.name = data.name
         app_user.user_type = db_user_type
         app_user.onboarding_completed = True
         app_user.updated_at = now
+
+        # Must land before career_profile's insert below — SQLAlchemy's
+        # flush-ordering only auto-sorts across tables when a relationship()
+        # is declared; a bare ForeignKey() column isn't enough, and
+        # session autoflush is off (see app/database.py), so without this
+        # explicit flush both inserts land in the same batch with
+        # unspecified order and can violate the FK.
+        db.flush()
 
         career_profile = (
             db.query(CareerProfile)

@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
@@ -100,6 +101,7 @@ def verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)) -> OtpVeri
 
     try:
         user = firebase_auth.create_user(
+            uid=str(uuid.uuid4()),
             email=email,
             password=body.password,
             email_verified=True,
