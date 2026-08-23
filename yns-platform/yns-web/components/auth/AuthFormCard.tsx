@@ -207,7 +207,7 @@ export function AuthFormCard({
   };
 
   return (
-    <div className="w-full max-w-lg space-y-6">
+    <div className="min-w-0 w-full max-w-lg space-y-6">
       <div className="space-y-4">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff4ef] text-[#a92712]">
           <Icon className="h-6 w-6" aria-hidden="true" />
@@ -218,8 +218,8 @@ export function AuthFormCard({
         </div>
       </div>
 
-      <Card className="rounded-3xl border-[#f8bfa9] bg-white shadow-sm">
-        <CardContent className="space-y-5 p-6 sm:p-7">
+      <Card className="w-full max-w-full rounded-3xl border-[#f8bfa9] bg-white shadow-sm">
+        <CardContent className="min-w-0 space-y-5 p-4 min-[380px]:p-6 sm:p-7">
           {message ? <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">{message}</Alert> : null}
           {error ? <Alert className="border-rose-200 bg-rose-50 text-rose-700">{error}</Alert> : null}
 
@@ -341,7 +341,7 @@ export function AuthFormCard({
       </Card>
 
       {!isOtpStep ? (
-        <p className="text-center text-base font-semibold text-slate-500">
+        <p className="px-1 text-center text-sm font-semibold leading-6 text-slate-500 sm:text-base">
           {footerText}{' '}
           <Link href={footerHref} className="font-bold text-[#a92712] hover:text-[#8f200f]">
             {footerLinkText}
@@ -365,7 +365,7 @@ function AuthField({
 }) {
   return (
     <label className="block space-y-2">
-      <span className="flex items-center justify-between gap-4 text-base font-bold text-slate-900">
+      <span className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-base font-bold text-slate-900">
         {label}
         {action}
       </span>

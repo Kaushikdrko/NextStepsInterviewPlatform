@@ -196,7 +196,7 @@ export function SettingsPage() {
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-6 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-        <div className="mx-auto w-full max-w-[1180px] lg:px-6">
+        <div className="app-page-container lg:px-6">
           <nav className="flex items-center gap-2 text-sm font-bold text-[#8a7c75]" aria-label="Breadcrumb">
             <Link href="/dashboard" className="transition hover:text-[#ad2d1f]">
               Dashboard

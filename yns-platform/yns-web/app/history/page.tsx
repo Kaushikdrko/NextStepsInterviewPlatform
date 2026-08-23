@@ -113,7 +113,7 @@ export default function HistoryPage() {
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-7 sm:px-6 sm:py-9 lg:min-h-screen lg:pl-[220px]">
-        <div className="mx-auto w-full max-w-6xl space-y-5 lg:px-6">
+        <div className="app-page-container space-y-5 lg:px-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="flex items-center gap-2 text-sm font-extrabold">
@@ -180,7 +180,7 @@ export default function HistoryPage() {
                 })}
               </div>
 
-              <div className="relative w-full lg:max-w-[300px]">
+              <div className="relative w-full lg:max-w-sm">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                 <Input
                   value={searchQuery}

@@ -91,10 +91,10 @@ export default function DashboardPage() {
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-6 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-        <div className="mx-auto w-full max-w-[1180px] lg:px-6">
+        <div className="app-page-container lg:px-6">
           <DashboardHeader targetRole={targetRole} />
 
-          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_clamp(300px,24vw,360px)]">
             <div className="flex min-w-0 flex-col gap-4">
               <WelcomeSection userName={userName} practiceStreakDays={stats.practice_streak_days} />
               <StatsSection stats={stats} />

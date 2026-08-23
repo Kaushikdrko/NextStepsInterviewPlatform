@@ -680,7 +680,7 @@ export function PracticeSession() {
         <Sidebar />
 
         <div className="min-h-[calc(100svh-4rem)] bg-[linear-gradient(180deg,#fbfaf7_0%,#fff4ef_100%)] px-4 py-5 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-          <div className="mx-auto w-full max-w-6xl lg:px-6">
+          <div className="app-page-container lg:px-6">
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <Card className="rounded-2xl border-slate-200/80 shadow-lg shadow-slate-200/70">
                 <CardHeader className="p-5 pb-0 sm:p-6 sm:pb-0">
@@ -907,7 +907,7 @@ export function PracticeSession() {
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-        <div className="mx-auto w-full max-w-6xl space-y-7 lg:px-6">
+        <div className="app-page-container space-y-7 lg:px-6">
           <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
@@ -975,7 +975,7 @@ export function PracticeSession() {
               </div>
             </section>
           ) : (
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_clamp(300px,23vw,360px)]">
             <section className="space-y-5">
               <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                 <div className="flex items-center gap-4">
@@ -993,7 +993,7 @@ export function PracticeSession() {
                 <p className="mt-6 text-xl font-extrabold leading-tight text-slate-950">{currentQuestion.question}</p>
               </article>
 
-              <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                 <h2 className="text-base font-extrabold text-slate-950">Your Answer</h2>
                 <textarea
                   value={answer}

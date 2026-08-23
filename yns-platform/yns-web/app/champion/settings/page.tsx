@@ -5,7 +5,7 @@ import { ChampionHeader } from '@/components/champion/ChampionHeader';
 export default function ChampionSettingsPage() {
   return (
     <main className="min-h-screen bg-neutral-50 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+      <div className="app-page-container flex flex-col gap-8">
         <ChampionHeader />
 
         <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">

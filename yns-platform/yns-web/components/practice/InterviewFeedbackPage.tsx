@@ -142,7 +142,7 @@ function LoadingState() {
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-        <div className="mx-auto w-full max-w-6xl space-y-5 lg:px-6">
+        <div className="app-page-container space-y-5 lg:px-6">
           <div className="h-28 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-hidden="true" />
             <p className="mt-4 text-sm font-bold text-slate-500">Loading interview feedback...</p>
@@ -281,7 +281,7 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-        <div className="mx-auto w-full max-w-6xl space-y-6 lg:px-6">
+        <div className="app-page-container space-y-6 lg:px-6">
           <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-500">
               <Link href="/practice" className="transition hover:text-slate-950">

@@ -173,7 +173,7 @@ export function ChampionDashboard() {
   )?.fullName;
 
   return (
-    <div className="mx-auto w-full max-w-[1160px] px-4 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+    <div className="app-page-container px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
       <ChampionHeader />
 
       <div className="mt-6 flex justify-start sm:justify-end">

@@ -31,7 +31,7 @@ function UsageStat({ label, value }: { label: string; value: string }) {
 
 function DrawerSkeleton() {
   return (
-    <div className="space-y-6 px-6 py-6" aria-hidden="true">
+    <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6" aria-hidden="true">
       <div className="flex items-center gap-3">
         <div className="h-12 w-12 animate-pulse rounded-full bg-neutral-100" />
         <div className="space-y-2">
@@ -159,7 +159,7 @@ export function StudentDetailsDrawer({
         aria-labelledby={titleId}
         className="absolute inset-y-0 right-0 flex w-full animate-drawer-in flex-col border-l border-neutral-200 bg-white shadow-2xl motion-reduce:animate-none sm:w-[min(88vw,452px)]"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-4 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0">
             <h2 id={titleId} className="truncate text-lg font-bold text-neutral-900">
               {heading}
@@ -181,7 +181,7 @@ export function StudentDetailsDrawer({
           {isLoading ? <DrawerSkeleton /> : null}
 
           {error ? (
-            <div role="alert" className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+            <div role="alert" className="flex flex-col items-center gap-3 px-4 py-12 text-center sm:px-6 sm:py-14">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-maroon-50 text-maroon-700">
                 <AlertTriangle className="h-5 w-5" aria-hidden="true" />
               </span>
@@ -198,7 +198,7 @@ export function StudentDetailsDrawer({
           ) : null}
 
           {details && !isLoading && !error ? (
-            <div className="space-y-7 px-6 py-6">
+            <div className="space-y-7 px-4 py-5 sm:px-6 sm:py-6">
               <div className="flex items-center gap-3.5">
                 <span
                   aria-hidden="true"

@@ -55,7 +55,7 @@ export function AuthPageFrame({ children }: AuthPageFrameProps) {
           </p>
         </section>
 
-        <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <section className="flex min-h-screen min-w-0 items-center justify-center px-4 py-8 sm:px-8 sm:py-10">
           {children}
         </section>
       </div>

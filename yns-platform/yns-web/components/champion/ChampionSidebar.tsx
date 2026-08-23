@@ -122,7 +122,7 @@ export function ChampionSidebar() {
             role="dialog"
             aria-modal="true"
             aria-label="Champion navigation"
-            className="fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col border-r border-neutral-200 bg-white"
+            className="fixed inset-y-0 left-0 z-50 flex w-[min(86vw,272px)] flex-col border-r border-neutral-200 bg-white"
           >
             <button
               type="button"

@@ -6,7 +6,7 @@ export default function DashboardLoading() {
       </div>
 
       <div className="min-h-screen px-4 py-6 sm:px-6 lg:pl-[220px]">
-        <div className="mx-auto w-full max-w-6xl space-y-5 lg:px-6">
+        <div className="app-page-container space-y-5 lg:px-6">
           <div className="h-[160px] animate-pulse rounded-[14px] bg-indigo-200" />
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
