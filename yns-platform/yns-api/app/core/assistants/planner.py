@@ -69,4 +69,6 @@ def plan_session(
         response_model=SessionPlan,
     )
 
-    return SessionPlan(**raw)
+    # The requested mode is application state, not a model decision. Preserve it
+    # so history can distinguish job-posting sessions from general mixed ones.
+    return SessionPlan(**{**raw, "session_type": session_type})

@@ -175,15 +175,19 @@ def get_dashboard_stats_for_user(user_id: str) -> dict[str, Any]:
                 db.query(InterviewTurn).filter(InterviewTurn.session_id.in_(session_ids)).all()
             )
 
+    answered_turns = [turn for turn in turns if (turn.answer_text or "").strip()]
     scores = [
         score
-        for score in (_score_as_percent((t.evaluation or {}).get("overall")) for t in turns)
+        for score in (
+            _score_as_percent((turn.evaluation or {}).get("overall"))
+            for turn in answered_turns
+        )
         if score is not None
     ]
 
     return {
         "interviews_completed": len(completed_sessions),
-        "questions_answered": len(turns),
+        "questions_answered": len(answered_turns),
         "average_feedback_score": round(sum(scores) / len(scores)) if scores else None,
         "practice_streak_days": _practice_streak_days(completed_sessions),
     }
@@ -213,7 +217,7 @@ def get_weekly_progress_for_user(user_id: str) -> list[dict[str, Any]]:
 
         week_start, week_end = _current_week_bounds()
         turns = (
-            db.query(InterviewTurn.created_at)
+            db.query(InterviewTurn.created_at, InterviewTurn.answer_text)
             .filter(
                 InterviewTurn.session_id.in_(session_ids),
                 InterviewTurn.created_at >= week_start,
@@ -222,7 +226,9 @@ def get_weekly_progress_for_user(user_id: str) -> list[dict[str, Any]]:
             .all()
         )
 
-    for (created_at,) in turns:
+    for created_at, answer_text in turns:
+        if not (answer_text or "").strip():
+            continue
         created_date = _parse_date(created_at)
         if created_date is None:
             continue

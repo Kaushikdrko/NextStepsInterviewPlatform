@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-SessionType = Literal["behavioral", "technical", "mixed", "resume"]
+SessionType = Literal["behavioral", "technical", "mixed", "resume", "job_posting"]
 QuestionCategory = Literal["behavioral", "technical", "values"]
 QuestionDifficulty = Literal["warmup", "core", "stretch"]
 

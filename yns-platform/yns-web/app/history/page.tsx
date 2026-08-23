@@ -9,13 +9,14 @@ import { Input } from '@/components/ui/input';
 import { getSessionHistory, type SessionSummary } from '@/lib/services/interview-assistant';
 import { cn } from '@/lib/utils';
 
-type HistoryFilter = 'all' | 'behavioral' | 'technical' | 'resume' | 'mixed';
+type HistoryFilter = 'all' | 'behavioral' | 'technical' | 'resume' | 'job_posting' | 'mixed';
 
 const historyFilters: { label: string; value: HistoryFilter }[] = [
   { label: 'All', value: 'all' },
   { label: 'Behavioral', value: 'behavioral' },
   { label: 'Technical', value: 'technical' },
   { label: 'Resume-Based', value: 'resume' },
+  { label: 'Job Posting', value: 'job_posting' },
   { label: 'General', value: 'mixed' },
 ];
 
@@ -111,7 +112,7 @@ export default function HistoryPage() {
     <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
-      <div className="min-h-screen px-4 py-7 sm:px-6 sm:py-9 lg:pl-[220px]">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-7 sm:px-6 sm:py-9 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-6xl space-y-5 lg:px-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -151,7 +152,7 @@ export default function HistoryPage() {
 
           {!error ? (
             <section className="flex flex-col gap-3 rounded-[18px] border border-[#e8ded4] bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap gap-2">
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {historyFilters.map((filter) => {
                   const isActive = activeFilter === filter.value;
 
@@ -161,7 +162,7 @@ export default function HistoryPage() {
                       type="button"
                       onClick={() => setActiveFilter(filter.value)}
                       className={cn(
-                        'inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-extrabold transition',
+                        'inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-extrabold transition',
                         isActive ? 'bg-[#ad2d1f] text-white shadow-sm' : 'bg-transparent text-[#7a6e68] hover:bg-[#f5eee8] hover:text-[#271f1b]'
                       )}
                     >
@@ -208,7 +209,7 @@ export default function HistoryPage() {
               </span>
               <p className="text-base font-bold text-slate-950">No completed sessions yet</p>
               <p className="max-w-sm text-sm font-semibold text-slate-500">
-                Finish a behavioral, technical, or general practice session to see it show up here.
+                Finish a behavioral, technical, resume-based, job-posting, or general practice session to see it show up here.
               </p>
               <Link
                 href="/practice"
@@ -254,7 +255,7 @@ export default function HistoryPage() {
                   <Link
                     key={session.session_id}
                     href={`/history/${session.session_id}`}
-                    className="group block rounded-[18px] border border-[#e8ded4] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d9c8bb] hover:shadow-md"
+                    className="group block rounded-[18px] border border-[#e8ded4] bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d9c8bb] hover:shadow-md sm:p-5"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 flex-1">

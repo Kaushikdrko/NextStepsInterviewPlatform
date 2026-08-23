@@ -78,19 +78,19 @@ export function PracticeProgressGraph() {
 
   return (
     <section className="rounded-[14px] border border-[#e7dbd0] bg-white p-5 shadow-[0_2px_5px_rgba(78,45,31,0.05)]">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-2 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between">
         <div className="flex items-center gap-2">
           <ChartNoAxesCombined className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
           <h2 className="text-sm font-extrabold text-[#271f1b]">Weekly progress</h2>
         </div>
 
-        <span className="rounded-full bg-[#fff2ed] px-3 py-1 text-xs font-extrabold text-[#ad2d1f]">
+        <span className="w-fit rounded-full bg-[#fff2ed] px-3 py-1 text-xs font-extrabold text-[#ad2d1f]">
           {totalQuestions} questions answered
         </span>
       </div>
 
       <div className="mt-3 overflow-hidden">
-        <svg className="h-[255px] w-full" viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`} role="img" aria-label="Questions answered each day this week">
+        <svg className="h-[205px] w-full sm:h-[235px] xl:h-[255px]" viewBox={`0 0 ${chartWidth} ${chartHeight + 28}`} role="img" aria-label="Questions answered each day this week">
           <defs>
             <linearGradient id="practice-progress-area" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#ad2d1f" stopOpacity="0.12" />

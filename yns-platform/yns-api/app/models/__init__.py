@@ -3,6 +3,7 @@ from app.models.job_posting import JobPosting
 from app.models.onboarding_status import OnboardingStatus
 from app.models.resume import Resume
 from app.models.session import InterviewSession, InterviewTurn, SessionReport
+from app.models.speech_transcription_job import SpeechTranscriptionJob
 from app.models.signup_otp_code import SignupOtpCode
 from app.models.user import AppUser
 from app.models.weekly_goal import WeeklyGoal
@@ -16,6 +17,7 @@ __all__ = [
     "OnboardingStatus",
     "Resume",
     "SessionReport",
+    "SpeechTranscriptionJob",
     "SignupOtpCode",
     "WeeklyGoal",
 ]

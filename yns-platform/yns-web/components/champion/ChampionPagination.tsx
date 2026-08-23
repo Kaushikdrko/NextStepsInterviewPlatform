@@ -48,7 +48,7 @@ export function ChampionPagination({
   }
 
   return (
-    <nav aria-label="Student list pages" className="flex items-center gap-1.5">
+    <nav aria-label="Student list pages" className="flex max-w-full items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}

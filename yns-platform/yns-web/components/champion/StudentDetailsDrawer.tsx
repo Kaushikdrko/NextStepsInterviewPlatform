@@ -44,7 +44,7 @@ function DrawerSkeleton() {
           <div key={index} className="h-3.5 animate-pulse rounded bg-neutral-100" />
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
         {Array.from({ length: 3 }, (_, index) => (
           <div key={index} className="h-16 animate-pulse rounded-xl bg-neutral-100" />
         ))}
@@ -157,7 +157,7 @@ export function StudentDetailsDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="absolute inset-y-0 right-0 flex w-full animate-drawer-in flex-col border-l border-neutral-200 bg-white shadow-2xl motion-reduce:animate-none sm:w-[55%] lg:w-[452px]"
+        className="absolute inset-y-0 right-0 flex w-full animate-drawer-in flex-col border-l border-neutral-200 bg-white shadow-2xl motion-reduce:animate-none sm:w-[min(88vw,452px)]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-6 py-5">
           <div className="min-w-0">
@@ -239,7 +239,7 @@ export function StudentDetailsDrawer({
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Usage — {describeRange(range)}
                 </h3>
-                <dl className="mt-2 grid grid-cols-3 gap-3">
+                <dl className="mt-2 grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
                   <UsageStat
                     label="Questions"
                     value={formatCount(details.questionsAnswered)}

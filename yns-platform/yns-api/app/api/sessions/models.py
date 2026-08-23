@@ -24,7 +24,7 @@ class TurnResponse(BaseModel):
     response_text: str
     action: str
     next_question: PlannedQuestion | None
-    evaluation: TurnEvaluation
+    evaluation: TurnEvaluation | None
     session_complete: bool
 
 

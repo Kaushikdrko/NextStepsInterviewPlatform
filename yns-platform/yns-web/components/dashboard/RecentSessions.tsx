@@ -58,21 +58,21 @@ export function RecentSessions({ sessions }: RecentSessionsProps) {
             <Link
               key={session.session_id}
               href={`/history/${session.session_id}`}
-              className="group flex items-center gap-3 py-3 first:pt-2 last:pb-0"
+              className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3 first:pt-2 last:pb-0 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fff2ed] text-[#ad2d1f]">
                 <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-extrabold text-[#271f1b]">{formatSessionType(session.session_type)} Interview</p>
-                <p className="mt-0.5 truncate text-xs font-medium text-[#9a8d86]">
+                <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-5 text-[#9a8d86] sm:truncate">
                   {session.answered_count} {session.answered_count === 1 ? 'question' : 'questions'} · {formatSessionDate(session.completed_at)}
                 </p>
               </div>
               <span className="rounded-full bg-[#fff2ed] px-3 py-1 text-xs font-extrabold text-[#ad2d1f]">
                 {formatScore(session.average_rating)}
               </span>
-              <ChevronRight className="h-4 w-4 text-[#aa9d95] transition group-hover:translate-x-0.5 group-hover:text-[#ad2d1f]" aria-hidden="true" />
+              <ChevronRight className="hidden h-4 w-4 text-[#aa9d95] transition group-hover:translate-x-0.5 group-hover:text-[#ad2d1f] sm:block" aria-hidden="true" />
             </Link>
           ))}
         </div>

@@ -17,6 +17,7 @@ class Settings:
     supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     resend_api_key: str = os.getenv("RESEND_API_KEY", "")
     otp_from_email: str = os.getenv("OTP_FROM_EMAIL", "YNS <onboarding@resend.dev>")
+    voice_bucket: str = os.getenv("VOICE_BUCKET", "")
 
     @property
     def cors_origins(self) -> list[str]:

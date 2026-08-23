@@ -55,9 +55,9 @@ router = APIRouter()
 
 
 def _storage_session_type(session_type: str) -> str:
-    # The live database check constraint predates resume-specific sessions.
-    # Keep the persisted column compatible while session_plan keeps "resume".
-    return "mixed" if session_type == "resume" else session_type
+    # The live database check constraint predates resume and job-posting modes.
+    # Keep the column compatible while session_plan retains the specific mode.
+    return "mixed" if session_type in {"resume", "job_posting"} else session_type
 
 
 def _load_profile(user_id: str):
@@ -155,20 +155,25 @@ def _session_matches_query(session: dict, turns: list[dict], query: str) -> bool
 
     for turn in turns:
         question = turn.get("question") or {}
+        answer_text = str(turn.get("answer_text") or "")
         searchable_values.extend(
             [
                 question.get("text") or "",
-                turn.get("answer_text") or "",
+                answer_text,
             ]
         )
-        evaluation = turn.get("evaluation") or {}
-        searchable_values.extend(evaluation.get("notable_strengths") or [])
-        searchable_values.extend(evaluation.get("notable_gaps") or [])
+        if answer_text.strip():
+            evaluation = turn.get("evaluation") or {}
+            searchable_values.extend(evaluation.get("notable_strengths") or [])
+            searchable_values.extend(evaluation.get("notable_gaps") or [])
 
     return normalized_query in " ".join(searchable_values).lower()
 
 
 def _turn_rating(turn: dict) -> float | None:
+    if not str(turn.get("answer_text") or "").strip():
+        return None
+
     evaluation = turn.get("evaluation")
     if not isinstance(evaluation, dict):
         return None
@@ -232,7 +237,9 @@ def list_sessions(
                 created_at=session["created_at"],
                 completed_at=session.get("completed_at"),
                 question_count=len(session_plan["questions"]),
-                answered_count=len(turns),
+                answered_count=sum(
+                    1 for turn in turns if str(turn.get("answer_text") or "").strip()
+                ),
                 average_rating=(sum(ratings) / len(ratings)) if ratings else None,
                 duration_minutes=_session_duration_minutes(session),
             )
@@ -329,21 +336,51 @@ def submit_turn(
     user_id: str = Depends(get_current_student),
 ):
     session = _get_owned_session(session_id, user_id)
-    profile = _load_profile(user_id)
-
     questions = session["session_plan"]["questions"]
     current_q = PlannedQuestion(**questions[body.turn_index])
+    answer_text = body.answer_text.strip()
+
+    if not answer_text:
+        write_turn(
+            {
+                "session_id": session_id,
+                "turn_index": body.turn_index,
+                "question": current_q.model_dump(),
+                "answer_text": "",
+                "evaluation": None,
+            }
+        )
+
+        next_index = body.turn_index + 1
+        if next_index >= len(questions):
+            update_session_status(session_id, "completed")
+            next_question = None
+            session_complete = True
+        else:
+            next_question = PlannedQuestion(**questions[next_index])
+            session_complete = False
+
+        return TurnResponse(
+            response_text="Question skipped.",
+            action="SKIP",
+            next_question=next_question,
+            evaluation=None,
+            session_complete=session_complete,
+        )
+
+    profile = _load_profile(user_id)
 
     recent_turns = [
         {"question": t["question"]["text"], "answer": t["answer_text"]}
         for t in get_last_n_turns(session_id, n=3)
+        if str(t.get("answer_text") or "").strip()
     ]
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         f_interviewer = pool.submit(
-            get_interviewer_response, current_q.text, body.answer_text, recent_turns
+            get_interviewer_response, current_q.text, answer_text, recent_turns
         )
-        f_evaluator = pool.submit(evaluate_turn, current_q, body.answer_text, profile)
+        f_evaluator = pool.submit(evaluate_turn, current_q, answer_text, profile)
         interviewer_result = f_interviewer.result()
         evaluator_result = f_evaluator.result()
 
@@ -352,7 +389,7 @@ def submit_turn(
             "session_id": session_id,
             "turn_index": body.turn_index,
             "question": current_q.model_dump(),
-            "answer_text": body.answer_text,
+            "answer_text": answer_text,
             "evaluation": evaluator_result.model_dump(),
         }
     )

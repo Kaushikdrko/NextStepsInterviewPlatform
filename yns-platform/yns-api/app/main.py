@@ -7,6 +7,7 @@ from app.api.champion.router import router as champion_router
 from app.api.reports.router import router as reports_router
 from app.api.resume.router import router as resume_router
 from app.api.sessions.router import router as sessions_router
+from app.api.speech.router import router as speech_router
 from app.config import settings
 from app.middleware.error_handler import register_error_handlers
 from app.routers import (
@@ -63,6 +64,7 @@ app.include_router(onboarding_summary.router, prefix="/api")
 app.include_router(sessions_router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(resume_router, prefix="/api/resume", tags=["resume"])
+app.include_router(speech_router, prefix="/api")
 
 # Champion Dashboard (organization-wide student engagement). Every route
 # requires a champion/admin role — see app/api/champion/router.py.

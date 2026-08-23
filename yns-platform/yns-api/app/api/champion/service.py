@@ -64,7 +64,7 @@ turn_totals AS (
     FROM interview_turns t
     JOIN interview_sessions s ON s.id = t.session_id
     JOIN students st ON st.id = s.user_id
-    WHERE t.answer_text IS NOT NULL
+    WHERE NULLIF(BTRIM(t.answer_text), '') IS NOT NULL
     GROUP BY s.user_id
 ),
 session_totals AS (

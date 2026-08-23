@@ -122,7 +122,7 @@ function FeedbackState({
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <Sidebar />
 
-      <div className="flex min-h-screen items-center px-4 py-8 sm:px-6 lg:pl-[220px]">
+      <div className="flex min-h-[calc(100svh-4rem)] items-center px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <Card className="mx-auto w-full max-w-md rounded-xl">
           <CardContent className="p-7 text-center">
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600">{icon}</span>
@@ -141,7 +141,7 @@ function LoadingState() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <Sidebar />
 
-      <div className="min-h-screen px-4 py-8 sm:px-6 lg:pl-[220px]">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-6xl space-y-5 lg:px-6">
           <div className="h-28 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-hidden="true" />
@@ -185,7 +185,7 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
         setFeedback(feedbackSession);
         setStatus(feedbackSession.items.length > 0 ? 'ready' : 'empty');
 
-        if (feedbackSession.items.length > 0) {
+        if (feedbackSession.answeredQuestions > 0) {
           try {
             setReportStatus('loading');
             setReportMessage('Loading full AI report...');
@@ -280,7 +280,7 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <Sidebar />
 
-      <div className="min-h-screen px-4 py-8 sm:px-6 lg:pl-[220px]">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-6xl space-y-6 lg:px-6">
           <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-500">
@@ -293,7 +293,7 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
 
             <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
-                <h1 className="text-3xl font-extrabold text-slate-950">Interview Feedback</h1>
+                <h1 className="text-2xl font-extrabold text-slate-950 sm:text-3xl">Interview Feedback</h1>
                 <p className="mt-2 text-base font-semibold leading-7 text-slate-500">
                   Review your answers and AI feedback from this session.
                 </p>

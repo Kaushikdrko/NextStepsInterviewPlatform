@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -19,6 +19,7 @@ import {
   Send,
   ShieldCheck,
   SkipForward,
+  Square,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { usePushToTalkTranscription } from '@/hooks/use-push-to-talk-transcription';
 import {
   createAssistantSession,
   getAssistantSessionType,
@@ -65,35 +67,6 @@ type SubmittedAnswer = {
   strengths?: string[];
   improvements?: string[];
 };
-
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: ArrayLike<ArrayLike<{ transcript: string }>>;
-};
-
-type SpeechRecognitionErrorEventLike = {
-  error?: string;
-};
-
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-  onend: (() => void) | null;
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-type BrowserWithSpeechRecognition = Window &
-  typeof globalThis & {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
 
 const modeLabels: Record<PracticeMode, string> = {
   behavioral: 'Behavioral Interview',
@@ -212,8 +185,6 @@ export function PracticeSession() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [sessionTimeSeconds, setSessionTimeSeconds] = useState(0);
   const [questionTimeSeconds, setQuestionTimeSeconds] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingError, setRecordingError] = useState('');
   const [isComplete, setIsComplete] = useState(false);
   const [isCompletingSession, setIsCompletingSession] = useState(false);
   const [completionError, setCompletionError] = useState('');
@@ -228,9 +199,30 @@ export function PracticeSession() {
   const [isSavingJobPosting, setIsSavingJobPosting] = useState(false);
   const [jobPostingMessage, setJobPostingMessage] = useState('');
   const [jobPostingError, setJobPostingError] = useState('');
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const answerActionInFlightRef = useRef(false);
   const completionInFlightRef = useRef(false);
+
+  const appendTranscript = useCallback((transcript: string) => {
+    setAnswer((currentAnswer) =>
+      `${currentAnswer}${currentAnswer.trim() ? ' ' : ''}${transcript}`.trimStart(),
+    );
+    setIsSubmitted(false);
+  }, []);
+
+  const {
+    phase: transcriptionPhase,
+    elapsedSeconds: recordingElapsedSeconds,
+    maxRecordingSeconds,
+    error: transcriptionError,
+    isRecording,
+    isBusy: isTranscriptionBusy,
+    startRecording,
+    stopRecording,
+    cancel: cancelTranscription,
+  } = usePushToTalkTranscription({
+    sessionId: assistantSessionId,
+    onTranscript: appendTranscript,
+  });
 
   const isPreparingInterview = isAssistantMode && assistantQuestions.length === 0 && !assistantError;
   const questions = assistantQuestions.length > 0 ? assistantQuestions : fallbackQuestions;
@@ -240,7 +232,43 @@ export function PracticeSession() {
   const progressValue = (questionNumber / questions.length) * 100;
   const words = countWords(answer);
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const canSubmit = !isCompletingSession && !isSubmittingAnswer && !isPreparingInterview && (answer.trim().length > 0 || isSubmitted);
+  const isVoiceActive = isRecording || isTranscriptionBusy;
+  const voiceStatusLabel =
+    transcriptionPhase === 'requesting_permission'
+      ? 'Requesting microphone access'
+      : transcriptionPhase === 'recording'
+        ? `Recording ${formatTime(recordingElapsedSeconds)} / ${formatTime(maxRecordingSeconds)}`
+        : transcriptionPhase === 'uploading'
+          ? 'Uploading recording securely'
+          : transcriptionPhase === 'transcribing'
+            ? 'Converting speech to text'
+            : transcriptionPhase === 'completed'
+              ? 'Transcript ready'
+              : transcriptionPhase === 'error'
+                ? 'Voice input needs attention'
+                : 'Ready to record';
+  const recordingButtonLabel = isRecording
+    ? 'Stop and Transcribe'
+    : isTranscriptionBusy
+      ? 'Cancel Voice Input'
+      : answer.trim()
+        ? 'Record More'
+        : 'Record Answer';
+  const voiceSummaryLabel = isRecording
+    ? formatTime(recordingElapsedSeconds)
+    : isTranscriptionBusy
+      ? 'Processing'
+      : transcriptionPhase === 'completed'
+        ? 'Ready'
+        : transcriptionPhase === 'error'
+          ? 'Error'
+          : 'Idle';
+  const canSubmit =
+    !isCompletingSession &&
+    !isSubmittingAnswer &&
+    !isPreparingInterview &&
+    !isVoiceActive &&
+    (answer.trim().length > 0 || isSubmitted);
 
   useEffect(() => {
     if (isComplete || !hasStartedSession || isPreparingInterview) return;
@@ -260,8 +288,6 @@ export function PracticeSession() {
     setIsSubmitted(false);
     setSessionTimeSeconds(0);
     setQuestionTimeSeconds(0);
-    setIsRecording(false);
-    setRecordingError('');
     setIsComplete(false);
     setAssistantSessionId(null);
     setAssistantQuestions([]);
@@ -270,8 +296,6 @@ export function PracticeSession() {
     setIsSubmittingAnswer(false);
     setHasStartedSession(selectedMode !== 'job_posting');
     setShowEndSessionModal(false);
-    recognitionRef.current?.abort();
-    recognitionRef.current = null;
   }, [selectedMode, assistantRestartKey]);
 
   useEffect(() => {
@@ -320,7 +344,7 @@ export function PracticeSession() {
     return () => {
       isMounted = false;
     };
-  }, [selectedMode]);
+  }, [assistantSessionType, selectedMode]);
 
   useEffect(() => {
     if (selectedMode !== 'job_posting') return;
@@ -365,12 +389,6 @@ export function PracticeSession() {
     };
   }, [selectedMode]);
 
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.abort();
-    };
-  }, []);
-
   const createSubmittedAnswer = (value: string, feedback?: Pick<SubmittedAnswer, 'aiFeedback' | 'score' | 'strengths' | 'improvements'>): SubmittedAnswer => ({
       questionId: currentQuestion.id,
       questionNumber,
@@ -396,7 +414,7 @@ export function PracticeSession() {
       completionInFlightRef.current = true;
       setIsCompletingSession(true);
       setCompletionError('');
-      stopRecording();
+      await cancelTranscription();
 
       if (!assistantSessionId) {
         throw new Error('Backend feedback is not available for this interview mode yet.');
@@ -422,12 +440,11 @@ export function PracticeSession() {
     setAnswer('');
     setIsSubmitted(false);
     setQuestionTimeSeconds(0);
-    setRecordingError('');
-    stopRecording();
+    void cancelTranscription();
   };
 
   const handleSubmitAnswer = async () => {
-    if (answerActionInFlightRef.current || isCompletingSession || isPreparingInterview) return;
+    if (answerActionInFlightRef.current || isCompletingSession || isPreparingInterview || isVoiceActive) return;
 
     if (!isSubmitted) {
       if (!answer.trim()) return;
@@ -442,7 +459,9 @@ export function PracticeSession() {
 
         if (assistantSessionId) {
           const turn = await submitAssistantTurn(assistantSessionId, currentQuestionIndex, answer.trim());
-          feedback = getEvaluationFeedback(turn.evaluation);
+          if (turn.evaluation) {
+            feedback = getEvaluationFeedback(turn.evaluation);
+          }
         }
 
         saveCurrentAnswer(answer, feedback);
@@ -471,7 +490,7 @@ export function PracticeSession() {
   };
 
   const handleSkipQuestion = async () => {
-    if (answerActionInFlightRef.current || isCompletingSession || isPreparingInterview) return;
+    if (answerActionInFlightRef.current || isCompletingSession || isPreparingInterview || isVoiceActive) return;
 
     answerActionInFlightRef.current = true;
     if (!isSubmitted) {
@@ -504,75 +523,22 @@ export function PracticeSession() {
     }, 250);
   };
 
-  const startRecording = () => {
-    setRecordingError('');
-
-    const speechWindow = window as BrowserWithSpeechRecognition;
-    const RecognitionConstructor = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
-
-    if (!RecognitionConstructor) {
-      setIsRecording(true);
-      setRecordingError('Voice transcription is not supported in this browser.');
-      return;
-    }
-
-    try {
-      const recognition = new RecognitionConstructor();
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event) => {
-        const transcriptParts: string[] = [];
-
-        for (let index = event.resultIndex; index < event.results.length; index += 1) {
-          const transcript = event.results[index]?.[0]?.transcript;
-
-          if (transcript) {
-            transcriptParts.push(transcript);
-          }
-        }
-
-        if (transcriptParts.length > 0) {
-          setAnswer((currentAnswer) => `${currentAnswer}${currentAnswer.trim() ? ' ' : ''}${transcriptParts.join(' ')}`.trimStart());
-        }
-      };
-
-      recognition.onerror = (event) => {
-        setRecordingError(event.error ? `Recording error: ${event.error}` : 'Recording could not start.');
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-      setIsRecording(true);
-    } catch {
-      setRecordingError('Microphone permission was denied or recording could not start.');
-      setIsRecording(false);
-    }
-  };
-
-  function stopRecording() {
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
-    setIsRecording(false);
-  }
-
-  const handleRecordingToggle = () => {
+  const handleRecordingAction = () => {
     if (isRecording) {
-      stopRecording();
+      void stopRecording();
       return;
     }
 
-    startRecording();
+    if (isTranscriptionBusy) {
+      void cancelTranscription();
+      return;
+    }
+
+    void startRecording();
   };
 
   const handleConfirmEndSession = async () => {
-    if (completionInFlightRef.current || answerActionInFlightRef.current) return;
+    if (completionInFlightRef.current || answerActionInFlightRef.current || isVoiceActive) return;
 
     if (!isSubmitted && answer.trim()) {
       answerActionInFlightRef.current = true;
@@ -583,7 +549,9 @@ export function PracticeSession() {
 
         if (assistantSessionId) {
           const turn = await submitAssistantTurn(assistantSessionId, currentQuestionIndex, answer.trim());
-          feedback = getEvaluationFeedback(turn.evaluation);
+          if (turn.evaluation) {
+            feedback = getEvaluationFeedback(turn.evaluation);
+          }
         }
 
         saveCurrentAnswer(answer, feedback);
@@ -601,14 +569,13 @@ export function PracticeSession() {
   };
 
   const resetPractice = () => {
-    stopRecording();
+    void cancelTranscription();
     setCurrentQuestionIndex(0);
     setAnswer('');
     setSubmittedAnswers([]);
     setIsSubmitted(false);
     setSessionTimeSeconds(0);
     setQuestionTimeSeconds(0);
-    setRecordingError('');
     setIsComplete(false);
     setIsCompletingSession(false);
     setCompletionError('');
@@ -665,7 +632,7 @@ export function PracticeSession() {
       <main className="min-h-screen bg-slate-50 text-slate-950">
         <Sidebar />
 
-        <div className="flex min-h-screen items-center px-4 py-8 sm:px-6 lg:pl-[220px]">
+        <div className="flex min-h-[calc(100svh-4rem)] items-center px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
           <section className="mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-sm">
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
               <Bot className="h-6 w-6" aria-hidden="true" />
@@ -712,7 +679,7 @@ export function PracticeSession() {
       <main className="min-h-screen bg-slate-50 text-slate-950">
         <Sidebar />
 
-        <div className="min-h-screen bg-[linear-gradient(180deg,#fbfaf7_0%,#fff4ef_100%)] px-4 py-5 sm:px-6 lg:pl-[220px]">
+        <div className="min-h-[calc(100svh-4rem)] bg-[linear-gradient(180deg,#fbfaf7_0%,#fff4ef_100%)] px-4 py-5 sm:px-6 lg:min-h-screen lg:pl-[220px]">
           <div className="mx-auto w-full max-w-6xl lg:px-6">
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <Card className="rounded-2xl border-slate-200/80 shadow-lg shadow-slate-200/70">
@@ -884,7 +851,7 @@ export function PracticeSession() {
       <main className="min-h-screen bg-slate-50 text-slate-950">
         <Sidebar />
 
-        <div className="min-h-screen px-4 py-8 sm:px-6 lg:pl-[220px]">
+        <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
           <div className="mx-auto w-full max-w-3xl space-y-6 lg:px-6">
             <header className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
@@ -939,7 +906,7 @@ export function PracticeSession() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <Sidebar />
 
-      <div className="min-h-screen px-4 py-8 sm:px-6 lg:pl-[220px]">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-6xl space-y-7 lg:px-6">
           <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="space-y-2">
@@ -950,7 +917,7 @@ export function PracticeSession() {
                 <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
                 <span className="text-slate-950">{title}</span>
               </div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">{title}</h1>
+              <h1 className="break-words text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -961,8 +928,8 @@ export function PracticeSession() {
               <button
                 type="button"
                 onClick={() => setShowEndSessionModal(true)}
-                disabled={isCompletingSession}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                disabled={isCompletingSession || isVoiceActive}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
                 End Session
@@ -1010,7 +977,7 @@ export function PracticeSession() {
           ) : (
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section className="space-y-5">
-              <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                 <div className="flex items-center gap-4">
                   <span className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
                     <Bot className="h-5 w-5" aria-hidden="true" />
@@ -1036,31 +1003,82 @@ export function PracticeSession() {
                       setIsSubmitted(false);
                     }
                   }}
-                  placeholder="Type your answer here..."
+                  placeholder="Type your answer or record it below..."
                   className="mt-4 min-h-[150px] w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-800 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                 />
 
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
+                  <div className="min-w-0 space-y-2" aria-live="polite">
                     <p className="text-sm font-bold text-slate-500">
                       {words} {words === 1 ? 'word' : 'words'}
                     </p>
                     {isSubmitted ? <p className="text-sm font-bold text-emerald-600">Answer submitted.</p> : null}
-                    {recordingError ? <p className="max-w-md text-sm font-semibold text-amber-600">{recordingError}</p> : null}
+                    <p
+                      className={cn(
+                        'flex items-center gap-2 text-sm font-semibold',
+                        transcriptionPhase === 'recording' && 'text-rose-700',
+                        (transcriptionPhase === 'requesting_permission' ||
+                          transcriptionPhase === 'uploading' ||
+                          transcriptionPhase === 'transcribing') &&
+                          'text-indigo-700',
+                        transcriptionPhase === 'completed' && 'text-emerald-700',
+                        (transcriptionPhase === 'idle' || transcriptionPhase === 'error') &&
+                          'text-slate-500',
+                      )}
+                    >
+                      {isRecording ? (
+                        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-rose-600" aria-hidden="true" />
+                      ) : isTranscriptionBusy ? (
+                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+                      ) : transcriptionPhase === 'completed' ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <Mic className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                      {voiceStatusLabel}
+                    </p>
+                    {transcriptionPhase === 'completed' ? (
+                      <p className="max-w-md text-sm font-semibold text-slate-500">
+                        Review and edit the transcript before submitting your answer.
+                      </p>
+                    ) : null}
+                    {!assistantSessionId && !isPreparingInterview ? (
+                      <p className="max-w-md text-sm font-semibold text-amber-700">
+                        Voice input requires an active AI interview session.
+                      </p>
+                    ) : null}
+                    {transcriptionError ? (
+                      <p className="max-w-md text-sm font-semibold text-rose-700">{transcriptionError}</p>
+                    ) : null}
                   </div>
 
                   <button
                     type="button"
-                    onClick={handleRecordingToggle}
+                    onClick={handleRecordingAction}
+                    disabled={
+                      isSubmitted ||
+                      isCompletingSession ||
+                      isSubmittingAnswer ||
+                      isPreparingInterview ||
+                      (!assistantSessionId && !isVoiceActive)
+                    }
                     className={cn(
-                      'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-extrabold shadow-sm transition',
+                      'inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-extrabold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto',
                       isRecording
                         ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                        : isTranscriptionBusy
+                          ? 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
                     )}
                   >
-                    <Mic className="h-4 w-4" aria-hidden="true" />
-                    {isRecording ? 'Stop Recording' : 'Start Recording'}
+                    {isRecording ? (
+                      <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                    ) : isTranscriptionBusy ? (
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Mic className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    {recordingButtonLabel}
                   </button>
                 </div>
               </article>
@@ -1072,12 +1090,12 @@ export function PracticeSession() {
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-between gap-4 px-3">
+              <div className="flex flex-col-reverse gap-3 px-0 sm:flex-row sm:items-center sm:justify-between sm:px-3">
                 <button
                   type="button"
                   onClick={handleSkipQuestion}
-                  disabled={isCompletingSession || isSubmittingAnswer || isPreparingAssistant}
-                  className="inline-flex h-10 items-center gap-2 text-sm font-extrabold text-slate-500 transition hover:text-slate-950"
+                  disabled={isCompletingSession || isSubmittingAnswer || isPreparingAssistant || isVoiceActive}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 text-sm font-extrabold text-slate-500 transition hover:text-slate-950 sm:w-auto"
                 >
                   <SkipForward className="h-4 w-4" aria-hidden="true" />
                   Skip Question
@@ -1087,7 +1105,7 @@ export function PracticeSession() {
                   type="button"
                   onClick={handleSubmitAnswer}
                   disabled={!canSubmit}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-7 text-sm font-extrabold text-white shadow-sm shadow-indigo-100 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-7 text-sm font-extrabold text-white shadow-sm shadow-indigo-100 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300 sm:w-auto"
                 >
                   {isCompletingSession || isSubmittingAnswer || isPreparingAssistant ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                   {isPreparingAssistant
@@ -1123,8 +1141,18 @@ export function PracticeSession() {
                   </div>
                   <div className="flex items-center gap-3 text-slate-500">
                     <Mic className="h-5 w-5" aria-hidden="true" />
-                    <span className="flex-1 text-sm font-extrabold">Recording</span>
-                    <span className="text-sm font-extrabold text-slate-500">{isRecording ? 'Recording' : 'Idle'}</span>
+                    <span className="flex-1 text-sm font-extrabold">Voice Input</span>
+                    <span
+                      className={cn(
+                        'text-sm font-extrabold',
+                        isRecording && 'text-rose-700',
+                        isTranscriptionBusy && 'text-indigo-700',
+                        transcriptionPhase === 'completed' && 'text-emerald-700',
+                        !isVoiceActive && transcriptionPhase !== 'completed' && 'text-slate-500',
+                      )}
+                    >
+                      {voiceSummaryLabel}
+                    </span>
                   </div>
                 </div>
               </section>
@@ -1174,7 +1202,7 @@ export function PracticeSession() {
               <button
                 type="button"
                 onClick={handleConfirmEndSession}
-                disabled={isCompletingSession}
+                disabled={isCompletingSession || isVoiceActive}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
               >
                 {isCompletingSession ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}

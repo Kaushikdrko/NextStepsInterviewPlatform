@@ -19,6 +19,8 @@ type FeedbackQuestionCardProps = {
 };
 
 export function FeedbackQuestionCard({ item }: FeedbackQuestionCardProps) {
+  const wasScored = typeof item.score === 'number';
+
   return (
     <Card className="overflow-hidden rounded-xl">
       <CardHeader className="gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
@@ -42,47 +44,55 @@ export function FeedbackQuestionCard({ item }: FeedbackQuestionCardProps) {
           </p>
         </div>
 
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-          <div className="flex items-center gap-2 text-sm font-extrabold text-indigo-900">
-            <Sparkles className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-            AI feedback
-          </div>
-          <p className="mt-3 text-sm font-semibold leading-6 text-indigo-950">{item.aiFeedback}</p>
-        </div>
-
-        <Separator />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <p className="text-sm font-extrabold text-slate-950">Strengths</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {item.strengths.length > 0 ? (
-                item.strengths.map((strength) => (
-                  <Badge key={strength} className="border-0 bg-emerald-50 text-emerald-700">
-                    {strength}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-sm font-semibold text-slate-500">Submit an answer to identify strengths.</span>
-              )}
+        {wasScored ? (
+          <>
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+              <div className="flex items-center gap-2 text-sm font-extrabold text-indigo-900">
+                <Sparkles className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                AI feedback
+              </div>
+              <p className="mt-3 text-sm font-semibold leading-6 text-indigo-950">{item.aiFeedback}</p>
             </div>
-          </div>
 
-          <div>
-            <p className="flex items-center gap-2 text-sm font-extrabold text-slate-950">
-              <Lightbulb className="h-4 w-4 text-amber-500" aria-hidden="true" />
-              Improvement tips
-            </p>
-            <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600">
-              {item.improvements.map((improvement) => (
-                <li key={improvement} className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-                  <span>{improvement}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+            <Separator />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <p className="text-sm font-extrabold text-slate-950">Strengths</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {item.strengths.length > 0 ? (
+                    item.strengths.map((strength) => (
+                      <Badge key={strength} className="border-0 bg-emerald-50 text-emerald-700">
+                        {strength}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm font-semibold text-slate-500">No notable strengths recorded.</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="flex items-center gap-2 text-sm font-extrabold text-slate-950">
+                  <Lightbulb className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                  Improvement tips
+                </p>
+                <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600">
+                  {item.improvements.map((improvement) => (
+                    <li key={improvement} className="flex gap-2">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                      <span>{improvement}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm font-semibold text-slate-500">
+            Skipped questions are not scored and do not affect your feedback report.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

@@ -141,3 +141,55 @@ def test_report_overall_in_range(mock_call_gemini):
     report = generate_report(session, make_turns(), make_profile())
 
     assert report.overall == 3
+
+
+@patch("app.core.assistants.reporter.call_gemini")
+def test_report_excludes_skipped_turns(mock_call_gemini):
+    mock_call_gemini.return_value = REPORT_DICT
+    turns = make_turns()
+    turns.insert(
+        1,
+        {
+            "session_id": "session-1",
+            "turn_index": 9,
+            "question": {
+                "id": "skipped-question",
+                "category": "technical",
+                "difficulty": "core",
+            },
+            "answer_text": "",
+            "evaluation": {
+                "overall": 5,
+                "notable_strengths": ["Invented strength"],
+                "notable_gaps": ["Invented gap"],
+            },
+        },
+    )
+
+    generate_report({"session_type": "mixed"}, turns, make_profile())
+
+    prompt = mock_call_gemini.call_args.kwargs["contents"]
+    assert "skipped-question" not in prompt
+    assert "Invented strength" not in prompt
+
+
+@patch("app.core.assistants.reporter.call_gemini")
+def test_report_requires_at_least_one_answer(mock_call_gemini):
+    skipped_turn = {
+        "question": {
+            "id": "skipped-question",
+            "category": "technical",
+            "difficulty": "core",
+        },
+        "answer_text": "   ",
+        "evaluation": None,
+    }
+
+    try:
+        generate_report({"session_type": "technical"}, [skipped_turn], make_profile())
+    except ValueError as exc:
+        assert str(exc) == "Answer at least one question before generating a report."
+    else:
+        raise AssertionError("Expected skipped-only report generation to fail.")
+
+    mock_call_gemini.assert_not_called()

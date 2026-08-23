@@ -42,7 +42,7 @@ export default function PracticePage() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <Sidebar />
 
-      <div className="flex min-h-screen items-center px-4 py-8 sm:px-6 lg:pl-[220px]">
+      <div className="flex min-h-[calc(100svh-4rem)] items-center px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-3xl space-y-7">
           <header className="space-y-3 text-center">
             <div className="flex items-center justify-center gap-2 text-sm font-bold text-slate-500">
@@ -54,7 +54,7 @@ export default function PracticePage() {
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">Choose a Practice Mode</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">Choose a Practice Mode</h1>
               <p className="text-base font-semibold text-slate-500">Select the type of interview you&apos;d like to practice today.</p>
             </div>
           </header>
@@ -77,7 +77,7 @@ function PracticeModeCard({ title, description, href, icon: Icon }: PracticeMode
     <Link
       href={href}
       className={cn(
-        'group flex min-h-[104px] w-full items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition',
+        'group flex min-h-[104px] w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition sm:gap-4',
         'hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
         'sm:p-5',
       )}

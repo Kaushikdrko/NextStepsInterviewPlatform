@@ -25,7 +25,15 @@ def generate_report(
     student_profile: StudentProfile,
 ) -> SessionReport:
     session_plan = session.get("session_plan") or session
-    turn_evaluations = [_flatten_turn(turn) for turn in all_turns]
+    turn_evaluations = [
+        _flatten_turn(turn)
+        for turn in all_turns
+        if str(turn.get("answer_text") or "").strip()
+        and isinstance(turn.get("evaluation"), dict)
+    ]
+
+    if not turn_evaluations:
+        raise ValueError("Answer at least one question before generating a report.")
 
     prompt = build_reporter_prompt(
         student_profile=student_profile.model_dump(),

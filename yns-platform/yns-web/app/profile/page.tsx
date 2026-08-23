@@ -11,7 +11,7 @@ export default function ProfilePage() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <Sidebar />
 
-      <div className="min-h-screen px-4 py-6 sm:px-6 lg:pl-[220px]">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-6 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-6xl space-y-5 lg:px-6">
           <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
             <Link href="/dashboard" className="transition hover:text-slate-950">

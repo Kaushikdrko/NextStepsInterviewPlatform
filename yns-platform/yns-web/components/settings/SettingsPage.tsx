@@ -195,7 +195,7 @@ export function SettingsPage() {
     <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
-      <div className="min-h-screen px-4 py-6 sm:px-6 lg:pl-[220px]">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-6 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-[1180px] lg:px-6">
           <nav className="flex items-center gap-2 text-sm font-bold text-[#8a7c75]" aria-label="Breadcrumb">
             <Link href="/dashboard" className="transition hover:text-[#ad2d1f]">
@@ -255,7 +255,7 @@ export function SettingsPage() {
                   </span>
                 </div>
 
-                <div className="grid sm:grid-cols-3 sm:divide-x sm:divide-[#eee5de]">
+                <div className="grid md:grid-cols-3 md:divide-x md:divide-[#eee5de]">
                   <AccountDetail icon={Mail} label="Email address" value={account.email} />
                   <AccountDetail icon={KeyRound} label="Sign-in method" value={account.signInMethod} />
                   <AccountDetail icon={Clock3} label="Last sign in" value={formatDateTime(account.lastSignInAt)} />

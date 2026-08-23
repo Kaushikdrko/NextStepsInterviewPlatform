@@ -1,7 +1,7 @@
 import { getFirebaseIdToken } from '@/lib/firebase/client';
 import { API_BASE_URL } from '@/lib/utils/api-client';
 
-export type AssistantSessionType = 'behavioral' | 'technical' | 'mixed' | 'resume';
+export type AssistantSessionType = 'behavioral' | 'technical' | 'mixed' | 'resume' | 'job_posting';
 
 export type PlannedQuestion = {
   id: string;
@@ -41,7 +41,7 @@ export type SubmitAssistantTurnResponse = {
   response_text: string;
   action: string;
   next_question: PlannedQuestion | null;
-  evaluation: TurnEvaluation;
+  evaluation: TurnEvaluation | null;
   session_complete: boolean;
 };
 
@@ -195,11 +195,11 @@ async function assistantFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function getAssistantSessionType(mode: string): AssistantSessionType | null {
-  if (mode === 'behavioral' || mode === 'technical' || mode === 'resume') {
+  if (mode === 'behavioral' || mode === 'technical' || mode === 'resume' || mode === 'job_posting') {
     return mode;
   }
 
-  if (mode === 'general' || mode === 'job_posting') {
+  if (mode === 'general') {
     return 'mixed';
   }
 

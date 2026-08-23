@@ -16,3 +16,5 @@ supabase-auth==2.20.0
 supabase-functions==2.20.0
 firebase-admin==7.5.0
 resend==2.35.0
+google-cloud-speech==2.40.0
+google-cloud-storage==3.6.0

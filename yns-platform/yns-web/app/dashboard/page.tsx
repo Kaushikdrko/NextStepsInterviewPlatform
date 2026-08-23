@@ -90,7 +90,7 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
-      <div className="min-h-screen px-4 py-6 sm:px-6 lg:pl-[220px]">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-6 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-[1180px] lg:px-6">
           <DashboardHeader targetRole={targetRole} />
 
@@ -102,11 +102,13 @@ export default function DashboardPage() {
               <RecentSessions sessions={recentSessions} />
             </div>
 
-            <aside className="flex min-w-0 flex-col gap-3 border-t border-[#e7dbd0] pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-              <p className="text-xs font-extrabold uppercase tracking-normal text-[#8a7c75]">Your status</p>
+            <aside className="grid min-w-0 gap-3 border-t border-[#e7dbd0] pt-5 md:grid-cols-2 xl:flex xl:flex-col xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+              <p className="text-xs font-extrabold uppercase tracking-normal text-[#8a7c75] md:col-span-2">Your status</p>
               <WeeklyGoalCard />
               <PracticeStreakCard days={stats.practice_streak_days} />
-              <FocusAreaCard />
+              <div className="md:col-span-2 xl:flex xl:flex-1">
+                <FocusAreaCard />
+              </div>
             </aside>
           </div>
         </div>

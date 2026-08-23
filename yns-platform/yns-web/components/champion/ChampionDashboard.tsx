@@ -173,7 +173,7 @@ export function ChampionDashboard() {
   )?.fullName;
 
   return (
-    <div className="mx-auto w-full max-w-[1160px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <div className="mx-auto w-full max-w-[1160px] px-4 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
       <ChampionHeader />
 
       <div className="mt-6 flex justify-start sm:justify-end">
@@ -184,7 +184,7 @@ export function ChampionDashboard() {
         aria-label="Students"
         className="mt-5 overflow-hidden rounded-2xl border border-neutral-200 bg-white"
       >
-        <div className="flex flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <StudentSearch value={searchInput} onChange={setSearchInput} />
             <StudentActivityFilters value={status} onChange={handleStatusChange} />
@@ -199,7 +199,7 @@ export function ChampionDashboard() {
         {showStaleDataWarning ? (
           <div
             role="alert"
-            className="flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-maroon-100 bg-maroon-50 px-6 py-3 text-[13px] font-medium text-maroon-800"
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-maroon-100 bg-maroon-50 px-4 py-3 text-[13px] font-medium text-maroon-800 sm:px-6"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             {error} Showing the last results that loaded.
@@ -247,7 +247,7 @@ export function ChampionDashboard() {
         ) : null}
 
         {showFooter ? (
-          <div className="flex flex-col gap-3 border-t border-neutral-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-neutral-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p aria-live="polite" className="text-[13px] font-medium text-neutral-500">
               {formatResultRange(page, DEFAULT_PAGE_SIZE, totalCount)}
             </p>

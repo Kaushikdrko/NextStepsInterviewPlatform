@@ -59,7 +59,10 @@ def create_report(
         raise HTTPException(status_code=404, detail="Profile not found — complete onboarding first")
     profile = build_student_profile(raw_profile)
 
-    report = generate_report(session, all_turns, profile)
+    try:
+        report = generate_report(session, all_turns, profile)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     write_report(
         {

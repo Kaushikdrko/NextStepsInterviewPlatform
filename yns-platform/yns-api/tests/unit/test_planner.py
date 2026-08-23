@@ -139,6 +139,16 @@ def test_plan_with_job_posting_still_has_values_question(mock_call_gemini):
 
 
 @patch("app.core.assistants.planner.call_gemini")
+def test_job_posting_mode_is_preserved_for_history(mock_call_gemini):
+    mock_call_gemini.return_value = TWO_QUESTION_PLAN
+
+    plan = plan_session(make_profile(), "job_posting")
+
+    assert plan.session_type == "job_posting"
+    assert "job_posting interview" in mock_call_gemini.call_args.kwargs["contents"]
+
+
+@patch("app.core.assistants.planner.call_gemini")
 def test_plan_handles_missing_job_posting(mock_call_gemini):
     mock_call_gemini.return_value = TWO_QUESTION_PLAN
 
