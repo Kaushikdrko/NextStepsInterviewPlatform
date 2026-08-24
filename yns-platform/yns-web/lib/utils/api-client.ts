@@ -2,6 +2,18 @@ import { getFirebaseIdToken } from '@/lib/firebase/client';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
+// Callers that have to tell an authorization answer (401/403) apart from a
+// network or server failure need the status, not just a message.
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`API request failed: ${status}`);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function getAuthHeaders() {
   if (typeof window === 'undefined') {
     return new Headers();
@@ -36,7 +48,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw new ApiError(response.status);
   }
 
   return response.json() as Promise<T>;

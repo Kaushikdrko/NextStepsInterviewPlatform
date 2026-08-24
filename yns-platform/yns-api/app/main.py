@@ -11,6 +11,7 @@ from app.api.speech.router import router as speech_router
 from app.config import settings
 from app.middleware.error_handler import register_error_handlers
 from app.routers import (
+    auth_access,
     auth_otp,
     career_profiles,
     high_school_profiles,
@@ -50,6 +51,7 @@ def health_check():
 
 app.include_router(users.router, prefix="/api")
 app.include_router(auth_otp.router, prefix="/api")
+app.include_router(auth_access.router, prefix="/api")
 app.include_router(onboarding.router, prefix="/api")
 app.include_router(career_profiles.router, prefix="/api")
 app.include_router(high_school_profiles.router, prefix="/api")
@@ -67,5 +69,5 @@ app.include_router(resume_router, prefix="/api/resume", tags=["resume"])
 app.include_router(speech_router, prefix="/api")
 
 # Champion Dashboard (organization-wide student engagement). Every route
-# requires a champion/admin role — see app/api/champion/router.py.
+# requires an allowlisted champion email — see app/api/champion/router.py.
 app.include_router(champion_router, prefix="/api/champion", tags=["champion"])

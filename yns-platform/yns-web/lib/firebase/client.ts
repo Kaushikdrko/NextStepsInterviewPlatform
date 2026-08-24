@@ -1,19 +1,11 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import {
-  getAuth,
-  onIdTokenChanged,
-  type Auth,
-  type IdTokenResult,
-  type User,
-} from "firebase/auth";
+import { getAuth, onIdTokenChanged, type Auth, type User } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
 };
-
-const CHAMPION_ROLES = new Set(["champion", "admin"]);
 
 // yns-web has no server-side Firebase session verification (that would need
 // firebase-admin, which doesn't run on the Edge runtime middleware.ts uses).
@@ -47,7 +39,7 @@ export function getFirebaseAuth(): Auth {
     auth = getAuth(app);
 
     if (typeof document !== "undefined") {
-      onIdTokenChanged(auth, async (user) => {
+      onIdTokenChanged(auth, (user) => {
         if (!user) {
           clearCookie(SESSION_COOKIE);
           clearCookie(ROLE_COOKIE);
@@ -55,8 +47,11 @@ export function getFirebaseAuth(): Auth {
         }
 
         setCookie(SESSION_COOKIE, "1");
-        const claims = await getIdTokenClaims(user);
-        setCookie(ROLE_COOKIE, hasChampionRole(claims) ? "champion" : "student");
+        // Champion access comes from a server-side email allowlist the browser
+        // is never given, so an ID token says nothing about it. Only the API's
+        // answer writes the role cookie (setChampionRoleCookie); clearing it
+        // here stops one session's answer being reused by the next.
+        clearCookie(ROLE_COOKIE);
       });
     }
   }
@@ -64,19 +59,9 @@ export function getFirebaseAuth(): Auth {
   return auth;
 }
 
-export async function getIdTokenClaims(user: User): Promise<IdTokenResult["claims"]> {
-  const result = await user.getIdTokenResult();
-  return result.claims;
-}
-
-export function hasChampionRole(claims: IdTokenResult["claims"] | null | undefined): boolean {
-  if (!claims) return false;
-
-  const role = claims.role;
-  const roles = claims.roles;
-  const candidates = [role, ...(Array.isArray(roles) ? roles : [])];
-
-  return candidates.some((candidate) => typeof candidate === "string" && CHAMPION_ROLES.has(candidate));
+/** Records what the API answered about the signed-in user's Champion access. */
+export function setChampionRoleCookie(isChampion: boolean) {
+  setCookie(ROLE_COOKIE, isChampion ? "champion" : "student");
 }
 
 // Firebase restores a persisted session asynchronously on page load; unlike

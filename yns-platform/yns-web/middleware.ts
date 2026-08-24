@@ -12,7 +12,14 @@ const CHAMPION_PREFIX = "/champion";
 // independently — see get_current_student/require_champion_user in
 // yns-api/app/dependencies.py.
 const SESSION_COOKIE = "yns-session";
+
+// Written only from the API's answer about the signed-in user (champion emails
+// are allowlisted server-side, so nothing in the browser can work it out). It
+// is often absent — an admin arriving straight at /champion/dashboard has not
+// asked the question yet — so it can rule champion access out, never in.
+// ChampionAccessGuard makes the real call when this says nothing.
 const ROLE_COOKIE = "yns-role";
+const NOT_A_CHAMPION = "student";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -32,7 +39,7 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/sign-in", request.url));
     }
 
-    if (pathname.startsWith(CHAMPION_PREFIX) && request.cookies.get(ROLE_COOKIE)?.value !== "champion") {
+    if (pathname.startsWith(CHAMPION_PREFIX) && request.cookies.get(ROLE_COOKIE)?.value === NOT_A_CHAMPION) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

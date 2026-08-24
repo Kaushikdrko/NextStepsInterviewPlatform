@@ -10,25 +10,62 @@ their own name and role in the header.
 
 ## Authorization
 
-Both the route and the API require a `champion` (or `admin`) role.
-
-The role lives in the **Supabase JWT**, not in a database column — the same
-mechanism `require_admin_user` already uses. Grant it with the Supabase admin
-API:
+Champion access is an **email allowlist**: `ADMIN_EMAILS` in
+`yns-api/app/admin_emails.py`. Nothing else grants it — not a database column,
+not a token claim — so no one can sign themselves up as a champion. Sign-up
+always creates a plain student account.
 
 ```python
-supabase.auth.admin.update_user_by_id(
-    user_id, {"app_metadata": {"role": "champion"}}
-)
+# yns-api/app/admin_emails.py
+ADMIN_EMAILS: list[str] = [
+    "klyne@yournextsteps.org",
+]
 ```
 
-Enforcement happens in two independent places, and the backend does not trust
-the frontend:
+To grant access, add the address the person signs in with and redeploy the API.
+To revoke it, delete the line: the list is consulted on every request, so it
+takes effect as soon as the new revision is live. Comparison goes through
+`is_admin_email()` and ignores letter case and surrounding whitespace, so
+`User@Example.com` here matches a token issued for `user@example.com`.
+
+Being on the list **adds** the champion experience; it does not take the student
+one away. The same account can use either dashboard, and which one it enters is
+the mode the user picked on the login page — see *Choosing an experience* below.
+
+Enforcement happens in three places. Only the last one is a security boundary;
+the backend does not trust either frontend gate:
 
 | Layer | File | What it does |
 |---|---|---|
-| Frontend | `yns-web/middleware.ts` | Redirects signed-out users to `/sign-in` and signed-in non-champions to `/dashboard` |
-| Backend | `yns-api/app/dependencies.py` → `require_champion_user` | Rejects every `/api/champion/*` request without the role (401 / 403) |
+| Frontend hint | `yns-web/middleware.ts` | Redirects signed-out users to `/sign-in`, and to `/dashboard` when the `yns-role` cookie says `student`. The cookie only ever records the API's answer, so it can rule champion access out, never in |
+| Frontend guard | `yns-web/components/champion/ChampionAccessGuard.tsx` | Calls `GET /api/auth/champion-access` before the dashboard shell renders; sends non-champions to `/dashboard`, signed-out users to `/sign-in`, and offers a retry if the check itself fails |
+| Backend | `yns-api/app/dependencies.py` → `require_champion_user` | Rejects every `/api/champion/*` request whose token email is not allowlisted (401 / 403) |
+
+The email always comes from the verified Firebase ID token (`claims_email()`),
+never from the request, so a caller cannot authorize themselves by sending
+somebody else's address. A token carrying no email is unauthorized.
+
+### Choosing an experience
+
+`/sign-in` has a Student / Champion segmented control
+(`components/auth/LoginModeSelector.tsx`) that defaults to Student and shares a
+single credentials form. The mode changes nothing about authentication — it only
+decides what happens next, in `getPostLoginRedirect(uid, mode)`
+(`lib/services/auth.ts`):
+
+- **Student** — unchanged behaviour: `/onboarding` when `onboarding_completed`
+  is false, otherwise `/dashboard`. Being an allowlisted champion does not
+  interfere.
+- **Champion** — asks `GET /api/auth/champion-access`, then goes to
+  `/champion/dashboard`. If the answer is no, the user stays on the login page
+  with "This account does not have Champion access." and a *Continue as Student*
+  button; they are already signed in, so they are not signed out. A failed
+  request (network/server) says so and offers a retry rather than silently
+  routing them to the student dashboard.
+
+`GET /api/auth/champion-access` answers `{"authorized": bool}` for the caller's
+own token only. It never returns the list, and it cannot be used to ask about
+another account.
 
 ### Row Level Security
 
@@ -47,7 +84,7 @@ data beyond the API.
 
 ## API
 
-All routes are mounted under `/api/champion` and require the role above.
+All routes are mounted under `/api/champion` and require an allowlisted email.
 
 ```
 GET /api/champion/me
@@ -125,9 +162,11 @@ rather than a plausible-looking wrong value.
    in `lib/services/interview-feedback.ts` currently only reaches localStorage).
 4. **In-progress sessions contribute no practice time**, because they have no
    `completed_at`. Their answered questions still count.
-5. **Champions are identified by JWT role, not by a database column.** A
-   champion whose `app_users.user_type` is a student type will also appear in
-   the student list. Fix: add an `app_users.role` column and filter on it.
+5. **Champions are identified by an email allowlist, not by a database column.**
+   A champion whose `app_users.user_type` is a student type will also appear in
+   the student list — which is correct for someone who uses both experiences,
+   but not for a champion-only account. Fix: add an `app_users.role` column and
+   filter on it.
 
 ## Indexes
 
