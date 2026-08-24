@@ -15,6 +15,8 @@ here matches a token issued for ``user@example.com``.
 ADMIN_EMAILS: list[str] = [
     # Add one authorized Champion email per line, in quotes, ending with a comma.
     "afeefsemail@gmail.com",
+    "Kaushik13.shivakumar@gmail.com",
+    "sobhiralakarthik@gmail.com",
 ]
 
 
