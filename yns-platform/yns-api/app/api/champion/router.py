@@ -3,8 +3,9 @@
 Mounted at ``/api/champion`` in ``app/main.py``. Responses use the schemas in
 ``models.py`` (camelCase JSON).
 
-Every route requires a champion or admin role. Authorization is enforced here,
-independently of the frontend route guard in ``yns-web/middleware.ts``.
+Every route requires an email on the allowlist in ``app/admin_emails.py``.
+Authorization is enforced here, independently of the frontend route guard in
+``yns-web/middleware.ts`` and ``yns-web/components/champion/ChampionAccessGuard.tsx``.
 """
 
 from typing import Any

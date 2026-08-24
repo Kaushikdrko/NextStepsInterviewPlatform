@@ -8,12 +8,13 @@ import { Mail, LockKeyhole, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
 import { signInWithCustomToken, signInWithEmailAndPassword } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 
+import { LoginModeSelector } from '@/components/auth/LoginModeSelector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/alert';
 import { getFirebaseAuth } from '@/lib/firebase/client';
-import { getPostLoginRedirect, requestPasswordReset } from '@/lib/services/auth';
+import { getPostLoginRedirect, requestPasswordReset, type LoginMode } from '@/lib/services/auth';
 import { API_BASE_URL } from '@/lib/utils/api-client';
 
 type OtpStartResponse = { success: boolean; error?: string };
@@ -68,6 +69,10 @@ export function AuthFormCard({
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
+  const [loginMode, setLoginMode] = useState<LoginMode>('student');
+  // Set when a Champion login was denied: they are signed in already, so the
+  // student experience is one click away instead of another login.
+  const [studentRoute, setStudentRoute] = useState<string | null>(null);
   const Icon = mode === 'sign-in' ? LogIn : UserPlus;
   const isOtpStep = mode === 'sign-up' && Boolean(pendingOtpEmail);
 
@@ -80,10 +85,18 @@ export function AuthFormCard({
     }
   }, []);
 
+  const handleLoginModeChange = (nextMode: LoginMode) => {
+    setLoginMode(nextMode);
+    setError(null);
+    setMessage(null);
+    setStudentRoute(null);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setMessage(null);
+    setStudentRoute(null);
     setIsSubmitting(true);
 
     try {
@@ -128,15 +141,15 @@ export function AuthFormCard({
       }
 
       const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
-      const claims = await credential.user.getIdTokenResult().then((result) => result.claims);
-      const { redirectTo, error: redirectError } = await getPostLoginRedirect(credential.user.uid, claims);
+      const redirect = await getPostLoginRedirect(credential.user.uid, loginMode);
 
-      if (redirectError) {
-        setError(redirectError);
+      if (!redirect.redirectTo) {
+        setError(redirect.error ?? 'Something went wrong. Please try again.');
+        setStudentRoute(redirect.studentRoute ?? null);
         return;
       }
 
-      router.push(redirectTo);
+      router.push(redirect.redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
@@ -220,8 +233,27 @@ export function AuthFormCard({
 
       <Card className="w-full max-w-full rounded-3xl border-[#f8bfa9] bg-white shadow-sm">
         <CardContent className="min-w-0 space-y-5 p-4 min-[380px]:p-6 sm:p-7">
+          {mode === 'sign-in' ? (
+            <LoginModeSelector
+              value={loginMode}
+              onChange={handleLoginModeChange}
+              disabled={isSubmitting}
+            />
+          ) : null}
+
           {message ? <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">{message}</Alert> : null}
           {error ? <Alert className="border-rose-200 bg-rose-50 text-rose-700">{error}</Alert> : null}
+
+          {studentRoute ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(studentRoute)}
+              className="h-11 w-full rounded-xl border-[#f8bfa9] text-sm font-bold text-[#a92712] hover:bg-[#fff4ef]"
+            >
+              Continue as Student
+            </Button>
+          ) : null}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             {isOtpStep ? (
@@ -334,7 +366,13 @@ export function AuthFormCard({
               disabled={isSubmitting}
               className="h-12 w-full rounded-xl bg-[#a92712] text-sm font-bold text-white shadow-sm hover:bg-[#8f200f]"
             >
-              {isSubmitting ? 'Please wait...' : isOtpStep ? 'Verify code' : submitLabel}
+              {isSubmitting
+                ? loginMode === 'champion' && mode === 'sign-in'
+                  ? 'Verifying Champion access...'
+                  : 'Please wait...'
+                : isOtpStep
+                  ? 'Verify code'
+                  : submitLabel}
             </Button>
           </form>
         </CardContent>

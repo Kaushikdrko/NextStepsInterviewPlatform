@@ -14,7 +14,9 @@ Four workflows, all built with a real backend (no mock data):
   practice-streak tracking.
 - **Champion Dashboard** — a read-only, organization-wide roster for mentors/
   admins to see every student's activity, searchable and filterable, with a
-  per-student detail drawer.
+  per-student detail drawer. Access is granted by adding an email to
+  `yns-api/app/admin_emails.py`; champions pick Student or Champion on the
+  login page, so one account can use both experiences.
 
 ## Tech stack
 

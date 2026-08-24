@@ -8,6 +8,7 @@ which is skipped unless a real database is provided.
 import pytest
 from fastapi.testclient import TestClient
 
+from app import admin_emails
 from app.api.champion import router as champion_router
 from app.api.champion.models import (
     ChampionProfile,
@@ -22,20 +23,31 @@ from app.main import app
 CHAMPION_ID = "11111111-1111-4111-8111-111111111111"
 STUDENT_ID = "22222222-2222-4222-8222-222222222222"
 
+CHAMPION_EMAIL = "klyne@yournextsteps.example"
+STUDENT_EMAIL = "maya@example.org"
+
 LIST_URL = "/api/champion/students"
 DETAILS_URL = f"/api/champion/students/{STUDENT_ID}"
 
 
-def claims_for(role: str | None) -> dict:
-    # Firebase custom claims (set via auth.set_custom_user_claims) land at
-    # the top level of the decoded ID token — unlike Supabase's nested
-    # app_metadata/user_metadata shape.
+def claims_for(email: str | None = CHAMPION_EMAIL) -> dict:
+    # Firebase puts the email at the top level of the decoded ID token, unlike
+    # Supabase's nested app_metadata/user_metadata shape.
     return {
         "sub": CHAMPION_ID,
-        "email": "klyne@yournextsteps.example",
         "name": "Klyne Smith",
-        **({"role": role} if role else {}),
+        **({"email": email} if email else {}),
     }
+
+
+@pytest.fixture(autouse=True)
+def allowlist(monkeypatch):
+    """Authorization must not depend on who is really in app/admin_emails.py.
+
+    The entry is deliberately mis-cased and padded — every request below relies
+    on it being normalized before comparison.
+    """
+    monkeypatch.setattr(admin_emails, "ADMIN_EMAILS", ["  Klyne@YourNextSteps.Example  "])
 
 
 SAMPLE_LIST = ChampionStudentListResponse(
@@ -105,7 +117,7 @@ def client():
 
 @pytest.fixture
 def champion_client(client):
-    app.dependency_overrides[get_current_claims] = lambda: claims_for("champion")
+    app.dependency_overrides[get_current_claims] = lambda: claims_for()
     return client
 
 
@@ -119,27 +131,48 @@ def test_anonymous_requests_are_rejected(client, url):
 
 @pytest.mark.parametrize("url", [LIST_URL, DETAILS_URL, "/api/champion/me"])
 def test_signed_in_student_is_forbidden(client, url):
-    app.dependency_overrides[get_current_claims] = lambda: claims_for(None)
+    app.dependency_overrides[get_current_claims] = lambda: claims_for(STUDENT_EMAIL)
     response = client.get(url)
     assert response.status_code == 403
     assert response.json()["detail"] == "Champion access required"
 
 
-@pytest.mark.parametrize("role", ["champion", "admin"])
-def test_authorized_roles_get_through(client, recorded, role):
-    app.dependency_overrides[get_current_claims] = lambda: claims_for(role)
+@pytest.mark.parametrize(
+    "email",
+    [
+        CHAMPION_EMAIL,
+        "KLYNE@YourNextSteps.Example",
+        "  klyne@yournextsteps.example  ",
+    ],
+)
+def test_an_allowlisted_email_gets_through_in_any_casing(client, recorded, email):
+    app.dependency_overrides[get_current_claims] = lambda: claims_for(email)
     assert client.get(LIST_URL).status_code == 200
 
 
-def test_roles_array_is_honoured(client, recorded):
+def test_a_champion_role_claim_alone_is_not_enough(client, recorded):
+    """The allowlist is the only grant — a role claim cannot substitute for it."""
+    payload = claims_for(STUDENT_EMAIL)
+    payload["role"] = "champion"
+    payload["roles"] = ["champion", "admin"]
+    app.dependency_overrides[get_current_claims] = lambda: payload
+    assert client.get(LIST_URL).status_code == 403
+
+
+def test_token_without_an_email_is_forbidden(client, recorded):
+    app.dependency_overrides[get_current_claims] = lambda: claims_for(None)
+    assert client.get(LIST_URL).status_code == 403
+
+
+def test_email_nested_in_user_metadata_is_honoured(client, recorded):
     payload = claims_for(None)
-    payload["roles"] = ["champion"]
+    payload["user_metadata"] = {"email": CHAMPION_EMAIL}
     app.dependency_overrides[get_current_claims] = lambda: payload
     assert client.get(LIST_URL).status_code == 200
 
 
 def test_token_without_a_subject_is_unauthorized(client, recorded):
-    payload = claims_for("champion")
+    payload = claims_for()
     payload.pop("sub")
     app.dependency_overrides[get_current_claims] = lambda: payload
     assert client.get(LIST_URL).status_code == 401

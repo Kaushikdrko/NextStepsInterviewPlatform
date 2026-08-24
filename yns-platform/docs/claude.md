@@ -12,7 +12,8 @@ using AI assistants tailored to their resume, career stage, and goals.
 
 Four workflows: **onboarding** (built), **interview assistants** (built,
 wired into the frontend), **session history** (built, real backend),
-**Champions portal** (mentor/admin dashboard — built, real backend, role-gated).
+**Champions portal** (mentor/admin dashboard — built, real backend, gated by an
+email allowlist).
 
 Staging is deployed on Google Cloud (Cloud Run for both apps) — see
 `docs/DEPLOYMENT.md` for the pipeline, current URLs, and gotchas. The
@@ -255,8 +256,9 @@ GET    /api/onboarding-summary/{user_id}
 # Sign-up email verification (Phase 3 — Firebase has no built-in code flow)
 POST   /api/auth/otp/start            → email a 6-digit code
 POST   /api/auth/otp/verify           → verify code, create the Firebase user, return a custom token
+GET    /api/auth/champion-access      → {"authorized": bool} for the caller's own token
 
-# Champion portal — real backend, role-gated (see docs/champion-dashboard.md)
+# Champion portal — real backend, allowlist-gated (see docs/champion-dashboard.md)
 GET    /api/champion/me
 GET    /api/champion/students?search=&status=&range=&sortBy=&sortOrder=&page=&pageSize=
 GET    /api/champion/students/{studentId}?range=
@@ -269,19 +271,22 @@ check_revoked=True)` — `check_revoked=True` is deliberate, not the default,
 so a disabled/revoked account is rejected immediately instead of up to an
 hour later. Returns the token's `sub`/`uid` claim as `user_id`
 (`app_users.id`, preserved from Supabase at import time). `/api/champion/*`
-requires the same bearer token plus a `champion`/`admin` role, read from the
-token's top-level `role`/`roles` custom claim (Firebase claims are flat,
-unlike Supabase's nested `app_metadata.role`) — granted via
-`firebase_admin.auth.set_custom_user_claims(uid, {"role": "champion"})`,
-enforced by `require_champion_user` in `app/dependencies.py`, independent of
-the frontend guard below.
+requires the same bearer token plus an email on the allowlist in
+`app/admin_emails.py`, compared case- and whitespace-insensitively by
+`is_admin_email()` and enforced by `require_champion_user` in
+`app/dependencies.py`, independent of the frontend guard below. The email is
+read out of the verified token (`claims_email()`), never from the request, and
+custom claims no longer grant champion access at all — editing that file is the
+only way in, so nobody can sign themselves up as a champion.
 
 **Frontend route protection (`yns-web/middleware.ts`):**
 `PROTECTED_PREFIXES = ["/onboarding", "/dashboard", "/sessions", "/champion"]`
-are gated (redirect to `/sign-in` if not signed in); `/champion` is further
-gated by role, redirecting non-champions to `/dashboard`. Since Phase 3, this
-check reads a plain `yns-session`/`yns-role` cookie kept in sync by a
-client-side `onIdTokenChanged` listener (`lib/firebase/client.ts`) —
+are gated (redirect to `/sign-in` if not signed in); `/champion` additionally
+redirects to `/dashboard` when the `yns-role` cookie says `student`. That cookie
+now records only what the API answered about the signed-in user
+(`/api/auth/champion-access`), so it can rule champion access *out* but never
+in — when it is absent, `components/champion/ChampionAccessGuard.tsx` asks the
+API before the dashboard shell renders. What middleware itself sees is still
 **unverified, a redirect hint only**, not a security boundary (real
 server-side Firebase session verification needs `firebase-admin`, which
 doesn't run on the Edge runtime `middleware.ts` uses). This was already true
@@ -380,16 +385,24 @@ resolve.
 aggregated in Postgres via `app/api/champion/service.py` (SQLAlchemy over
 `DATABASE_URL`, no RLS on Cloud SQL at all — this endpoint needs a
 cross-student aggregate, so `require_champion_user` is the only thing
-gating it, by design). Gated in two independent places: `yns-web/middleware.ts`
-(redirects non-champions to `/dashboard` — unverified redirect hint only,
-see Frontend route protection above) and `require_champion_user` in
-`yns-api/app/dependencies.py` (401/403 on `/api/champion/*` — the backend
-does not trust the frontend gate). The champion/admin role lives in the
-Firebase ID token's top-level `role` custom claim (flat, not nested like
-Supabase's `app_metadata.role`), not a database column — granted via
-`firebase_admin.auth.set_custom_user_claims(uid, {"role": "champion"})`.
-Takes effect on the user's next token refresh, not retroactively on tokens
-already issued.
+gating it, by design). Gated in three places, only the last of which is a
+security boundary: `yns-web/middleware.ts` (unverified redirect hint, see
+Frontend route protection above), `components/champion/ChampionAccessGuard.tsx`
+(asks `/api/auth/champion-access` before rendering the shell, and sends
+non-champions to `/dashboard`), and `require_champion_user` in
+`yns-api/app/dependencies.py` (401/403 on every `/api/champion/*` route — the
+backend does not trust either frontend gate).
+
+Champion access is an **email allowlist**, `ADMIN_EMAILS` in
+`yns-api/app/admin_emails.py` — not a database column, not a token claim. Add
+an address there and redeploy the API to grant it; delete the line to revoke it
+(checked per request, so it takes effect immediately, unlike the custom claims
+this replaced). Comparison is case- and whitespace-insensitive.
+
+Being on the list **adds** the champion experience rather than replacing the
+student one: the same account can use either dashboard, and which one it enters
+is whatever the user picked on the login page (see Auth below). Nothing about
+the choice is persisted.
 
 Known schema gaps (documented, not bugs — see champion-dashboard.md for the
 fixes): `school` and `phone` aren't stored anywhere so the drawer shows
@@ -405,7 +418,17 @@ a stored duration.
   `components/auth/AuthPageFrame.tsx`. `/login` and `/signup` are old paths
   that now just redirect (via `middleware.ts`) to `/sign-in`/`/sign-up`.
 - `AuthFormCard.tsx` does **email + password only**
-  (`signInWithEmailAndPassword`) — no magic link, no Google SSO. Sign-up is
+  (`signInWithEmailAndPassword`) — no magic link, no Google SSO. Sign-in offers
+  a Student/Champion segmented control (`components/auth/LoginModeSelector.tsx`,
+  defaulting to Student) that shares one form: the mode only decides where the
+  user lands afterwards, via `getPostLoginRedirect(uid, mode)` in
+  `lib/services/auth.ts`. Student keeps the old behaviour (onboarding when
+  `onboarding_completed` is false, otherwise `/dashboard`); Champion calls
+  `/api/auth/champion-access` and either goes to `/champion/dashboard` or, if
+  the API says no, stays put with "This account does not have Champion access."
+  plus a *Continue as Student* button — no sign-out, since they are already
+  authenticated and may just have picked the wrong mode. Sign-up has no mode
+  selector; it always creates a plain student account. Sign-up is
   a custom two-step OTP flow (Phase 3 — Firebase has no built-in "type a
   code" verification): `POST /api/auth/otp/start` emails a 6-digit code via
   Resend, then `POST /api/auth/otp/verify` checks it, creates the Firebase

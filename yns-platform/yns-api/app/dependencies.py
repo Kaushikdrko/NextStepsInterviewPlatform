@@ -3,12 +3,10 @@ from typing import Any
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.admin_emails import is_admin_email
 from app.middleware.auth import verify_firebase_token
 
 security = HTTPBearer(auto_error=False)
-
-
-CHAMPION_ROLES = frozenset({"champion", "admin"})
 
 
 def _claim_roles(claims: dict[str, Any]) -> set[str]:
@@ -32,6 +30,21 @@ def _claims_subject(claims: dict[str, Any]) -> str:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user_id
+
+
+def claims_email(claims: dict[str, Any]) -> str | None:
+    """The signed-in user's email, taken from the verified token only."""
+    email = claims.get("email")
+    if isinstance(email, str):
+        return email
+
+    # Identity Platform users migrated from Supabase can still carry the email
+    # under the old nested shape — the same fallback the champion profile uses.
+    user_metadata = claims.get("user_metadata")
+    if isinstance(user_metadata, dict) and isinstance(user_metadata.get("email"), str):
+        return user_metadata["email"]
+
+    return None
 
 
 def get_current_claims(
@@ -59,21 +72,20 @@ def require_admin_user(claims: dict[str, Any] = Depends(get_current_claims)) -> 
 def require_champion_user(claims: dict[str, Any] = Depends(get_current_claims)) -> str:
     """Authorize the Champion Dashboard.
 
-    The role lives in the Firebase ID token's custom claims (``role``), not in
-    a database column — see ``require_admin_user`` for the same pattern. Grant it
-    with the Firebase Admin SDK:
+    Access is granted by email address, from the allowlist in
+    ``app/admin_emails.py``. The address comes out of the verified ID token, so a
+    caller cannot authorize themselves by sending someone else's email, and a
+    token carrying no email is never authorized.
 
-        auth.set_custom_user_claims(uid, {"role": "champion"})
-
-    Custom claims only take effect on the user's *next* ID token refresh (up to
-    an hour on the client, or immediately if they sign in again) — not
-    retroactively on tokens already issued.
+    Being on the allowlist does not take the student experience away: the same
+    account can use either dashboard, and which one it lands on is the login mode
+    the user picked, not something stored against the account.
 
     Champions are not scoped to individual students: every authorized champion
     sees the same organization-wide data, so this returns only the caller's id
     for logging/profile lookups and never filters query results by it.
     """
-    if _claim_roles(claims).isdisjoint(CHAMPION_ROLES):
+    if not is_admin_email(claims_email(claims)):
         raise HTTPException(status_code=403, detail="Champion access required")
 
     return _claims_subject(claims)
