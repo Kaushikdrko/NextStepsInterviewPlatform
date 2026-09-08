@@ -144,9 +144,9 @@ export default function HistoryPage() {
           ) : null}
 
           {isLoading ? (
-            <div className="flex items-center gap-3 rounded-[10px] border border-slate-200 bg-white p-6 shadow-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-400" aria-hidden="true" />
-              <p className="text-sm font-bold text-slate-500">Loading your history...</p>
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#e8ded4] bg-white p-6 shadow-sm">
+              <Loader2 className="h-4 w-4 animate-spin text-[#a3958b]" aria-hidden="true" />
+              <p className="text-sm font-bold text-[#8a7c75]">Loading your history...</p>
             </div>
           ) : null}
 
@@ -181,7 +181,7 @@ export default function HistoryPage() {
               </div>
 
               <div className="relative w-full lg:max-w-sm">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a3958b]" aria-hidden="true" />
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
@@ -192,7 +192,7 @@ export default function HistoryPage() {
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[#a3958b] transition hover:bg-[#f5efe8] hover:text-[#71645e]"
                     aria-label="Clear history search"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
@@ -203,17 +203,17 @@ export default function HistoryPage() {
           ) : null}
 
           {!isLoading && !error && sessions.length === 0 && !searchQuery.trim() ? (
-            <div className="flex flex-col items-center gap-3 rounded-[10px] border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
+            <div className="flex flex-col items-center gap-3 rounded-[10px] border border-dashed border-[#e8ded4] bg-white p-10 text-center shadow-sm">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff1e9] text-[#ad2d1f]">
                 <HistoryIcon className="h-6 w-6" aria-hidden="true" />
               </span>
-              <p className="text-base font-bold text-slate-950">No completed sessions yet</p>
-              <p className="max-w-sm text-sm font-semibold text-slate-500">
+              <p className="text-base font-bold text-[#271f1b]">No completed sessions yet</p>
+              <p className="max-w-sm text-sm font-semibold text-[#8a7c75]">
                 Finish a behavioral, technical, resume-based, job-posting, or general practice session to see it show up here.
               </p>
               <Link
                 href="/practice"
-                className="mt-2 inline-flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-500"
+                className="mt-2 inline-flex h-9 items-center gap-2 rounded-lg bg-[#ad2d1f] px-4 text-sm font-bold text-white shadow-sm shadow-[#ead8cc] transition hover:bg-[#ad2d1f]"
               >
                 Start Practicing
               </Link>
@@ -221,24 +221,24 @@ export default function HistoryPage() {
           ) : null}
 
           {!isLoading && !error && sessions.length === 0 && searchQuery.trim() ? (
-            <div className="flex flex-col items-center gap-3 rounded-[10px] border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
+            <div className="flex flex-col items-center gap-3 rounded-[10px] border border-dashed border-[#e8ded4] bg-white p-10 text-center shadow-sm">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff1e9] text-[#ad2d1f]">
                 <Search className="h-6 w-6" aria-hidden="true" />
               </span>
-              <p className="text-base font-bold text-slate-950">No matching sessions</p>
-              <p className="max-w-sm text-sm font-semibold text-slate-500">
+              <p className="text-base font-bold text-[#271f1b]">No matching sessions</p>
+              <p className="max-w-sm text-sm font-semibold text-[#8a7c75]">
                 Try a different question, answer keyword, or interview type.
               </p>
             </div>
           ) : null}
 
           {!isLoading && !error && sessions.length > 0 && filteredSessions.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-[10px] border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
+            <div className="flex flex-col items-center gap-3 rounded-[10px] border border-dashed border-[#e8ded4] bg-white p-10 text-center shadow-sm">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff1e9] text-[#ad2d1f]">
                 <HistoryIcon className="h-6 w-6" aria-hidden="true" />
               </span>
-              <p className="text-base font-bold text-slate-950">No {selectedFilterLabel.toLowerCase()} sessions yet</p>
-              <p className="max-w-sm text-sm font-semibold text-slate-500">
+              <p className="text-base font-bold text-[#271f1b]">No {selectedFilterLabel.toLowerCase()} sessions yet</p>
+              <p className="max-w-sm text-sm font-semibold text-[#8a7c75]">
                 Choose another filter or complete a {selectedFilterLabel.toLowerCase()} interview to see it here.
               </p>
             </div>

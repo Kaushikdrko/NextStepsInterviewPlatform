@@ -46,14 +46,14 @@ export function FeedbackSummaryCard({ feedback }: FeedbackSummaryCardProps) {
   return (
     <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       {stats.map((stat) => (
-        <Card key={stat.label} className="rounded-xl">
+        <Card key={stat.label} className="rounded-xl border-[#e8ded4]">
           <CardContent className="flex h-full gap-3 p-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff1e9] text-[#ad2d1f]">
               <stat.icon className="h-4 w-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase text-slate-400">{stat.label}</p>
-              <p className="mt-1 text-sm font-extrabold leading-5 text-slate-950">{stat.value}</p>
+              <p className="text-xs font-bold uppercase text-[#a3958b]">{stat.label}</p>
+              <p className="mt-1 text-sm font-extrabold leading-5 text-[#271f1b]">{stat.value}</p>
             </div>
           </CardContent>
         </Card>

@@ -7,11 +7,11 @@ import { cn } from '@/lib/utils';
 import type { SessionTurnDetail } from '@/lib/services/interview-assistant';
 
 function getRatingClasses(rating?: number) {
-  if (typeof rating !== 'number') return 'bg-slate-100 text-slate-600';
+  if (typeof rating !== 'number') return 'bg-[#f5efe8] text-[#71645e]';
   if (rating >= 4.5) return 'bg-emerald-50 text-emerald-700';
-  if (rating >= 3.5) return 'bg-indigo-50 text-indigo-700';
+  if (rating >= 3.5) return 'bg-[#fff1e9] text-[#992719]';
   if (rating > 0) return 'bg-amber-50 text-amber-700';
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-[#f5efe8] text-[#71645e]';
 }
 
 type HistoryQuestionCardProps = {
@@ -22,11 +22,11 @@ export function HistoryQuestionCard({ turn }: HistoryQuestionCardProps) {
   const { question, answer_text: answerText, evaluation } = turn;
 
   return (
-    <Card className="overflow-hidden rounded-xl">
+    <Card className="overflow-hidden rounded-xl border-[#e8ded4]">
       <CardHeader className="gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
         <div className="min-w-0">
-          <Badge className="border-0 bg-slate-100 text-slate-600">Question {turn.turn_index + 1}</Badge>
-          <CardTitle className="mt-3 text-lg font-extrabold leading-7 text-slate-950">{question.text}</CardTitle>
+          <Badge className="border-0 bg-[#f5efe8] text-[#71645e]">Question {turn.turn_index + 1}</Badge>
+          <CardTitle className="mt-3 text-lg font-extrabold leading-7 text-[#271f1b]">{question.text}</CardTitle>
         </div>
         <Badge className={cn('shrink-0 border-0 px-3 py-1 text-sm font-extrabold', getRatingClasses(evaluation?.overall))}>
           {evaluation ? `${evaluation.overall}/5` : 'Not rated'}
@@ -34,37 +34,37 @@ export function HistoryQuestionCard({ turn }: HistoryQuestionCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-5 p-5 pt-0">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div className="flex items-center gap-2 text-sm font-extrabold text-slate-950">
-            <MessageSquareText className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+        <div className="rounded-xl border border-[#e8ded4] bg-[#faf7f2] p-4">
+          <div className="flex items-center gap-2 text-sm font-extrabold text-[#271f1b]">
+            <MessageSquareText className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
             Your answer
           </div>
-          <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-600">
+          <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#71645e]">
             {answerText.trim() || 'Skipped — no answer submitted.'}
           </p>
         </div>
 
         {evaluation ? (
           <>
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-              <div className="flex items-center gap-2 text-sm font-extrabold text-indigo-900">
-                <Sparkles className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+            <div className="rounded-xl border border-[#ead8cc] bg-[#fff1e9]/60 p-4">
+              <div className="flex items-center gap-2 text-sm font-extrabold text-[#71382b]">
+                <Sparkles className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
                 Rubric breakdown
               </div>
               <ul className="mt-3 space-y-2">
                 {evaluation.dimensions.map((dimension) => (
-                  <li key={dimension.name} className="text-sm font-semibold leading-6 text-indigo-950">
+                  <li key={dimension.name} className="text-sm font-semibold leading-6 text-[#443730]">
                     <span className="font-extrabold">{dimension.name} ({dimension.score}/5):</span> {dimension.rationale}
                   </li>
                 ))}
               </ul>
             </div>
 
-            <Separator />
+            <Separator className="bg-[#e8ded4]" />
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <p className="text-sm font-extrabold text-slate-950">Strengths</p>
+                <p className="text-sm font-extrabold text-[#271f1b]">Strengths</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {evaluation.notable_strengths.length > 0 ? (
                     evaluation.notable_strengths.map((strength) => (
@@ -73,17 +73,17 @@ export function HistoryQuestionCard({ turn }: HistoryQuestionCardProps) {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm font-semibold text-slate-500">No notable strengths recorded.</span>
+                    <span className="text-sm font-semibold text-[#8a7c75]">No notable strengths recorded.</span>
                   )}
                 </div>
               </div>
 
               <div>
-                <p className="flex items-center gap-2 text-sm font-extrabold text-slate-950">
+                <p className="flex items-center gap-2 text-sm font-extrabold text-[#271f1b]">
                   <Lightbulb className="h-4 w-4 text-amber-500" aria-hidden="true" />
                   Growth areas
                 </p>
-                <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600">
+                <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-[#71645e]">
                   {evaluation.notable_gaps.length > 0 ? (
                     evaluation.notable_gaps.map((gap) => (
                       <li key={gap} className="flex gap-2">
@@ -92,7 +92,7 @@ export function HistoryQuestionCard({ turn }: HistoryQuestionCardProps) {
                       </li>
                     ))
                   ) : (
-                    <span className="text-sm font-semibold text-slate-500">No growth areas recorded.</span>
+                    <span className="text-sm font-semibold text-[#8a7c75]">No growth areas recorded.</span>
                   )}
                 </ul>
               </div>

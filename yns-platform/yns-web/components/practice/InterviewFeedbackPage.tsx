@@ -119,15 +119,15 @@ function FeedbackState({
   action?: ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
       <div className="flex min-h-[calc(100svh-4rem)] items-center px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-        <Card className="mx-auto w-full max-w-md rounded-xl">
+        <Card className="mx-auto w-full max-w-md rounded-xl border-[#e8ded4]">
           <CardContent className="p-7 text-center">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600">{icon}</span>
-            <h1 className="mt-5 text-2xl font-extrabold text-slate-950">{title}</h1>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#f5efe8] text-[#71645e]">{icon}</span>
+            <h1 className="mt-5 text-2xl font-extrabold text-[#271f1b]">{title}</h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#8a7c75]">{description}</p>
             {action ? <div className="mt-6">{action}</div> : null}
           </CardContent>
         </Card>
@@ -138,21 +138,21 @@ function FeedbackState({
 
 function LoadingState() {
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="app-page-container space-y-5 lg:px-6">
-          <div className="h-28 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-hidden="true" />
-            <p className="mt-4 text-sm font-bold text-slate-500">Loading interview feedback...</p>
+          <div className="h-28 rounded-xl border border-[#e8ded4] bg-white p-6 shadow-sm">
+            <Loader2 className="h-5 w-5 animate-spin text-[#a3958b]" aria-hidden="true" />
+            <p className="mt-4 text-sm font-bold text-[#8a7c75]">Loading interview feedback...</p>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="h-24 animate-pulse rounded-xl bg-slate-200/70" />
+              <div key={index} className="h-24 animate-pulse rounded-xl bg-[#e8ded4]/70" />
             ))}
           </div>
-          <div className="h-72 animate-pulse rounded-xl bg-slate-200/70" />
+          <div className="h-72 animate-pulse rounded-xl bg-[#e8ded4]/70" />
         </div>
       </div>
     </main>
@@ -238,7 +238,7 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
         title="Sign in required"
         description={message}
         action={
-          <Link href="/sign-in" className={buttonVariants({ className: 'w-full rounded-lg font-bold' })}>
+          <Link href="/sign-in" className={buttonVariants({ className: 'w-full rounded-lg font-bold bg-[#ad2d1f] text-white hover:bg-[#992719] focus-visible:ring-[#ad2d1f]' })}>
             Go to Sign In
           </Link>
         }
@@ -253,7 +253,7 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
         title="Feedback could not load"
         description={message}
         action={
-          <Link href="/practice" className={buttonVariants({ variant: 'outline', className: 'w-full rounded-lg font-bold' })}>
+          <Link href="/practice" className={buttonVariants({ variant: 'outline', className: 'w-full rounded-lg font-bold border-[#e8ded4] text-[#71645e] hover:bg-[#faf7f2] focus-visible:ring-[#ad2d1f]' })}>
             Start New Interview
           </Link>
         }
@@ -268,7 +268,7 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
         title="No feedback yet"
         description={message || 'Complete an interview session to generate feedback.'}
         action={
-          <Link href="/practice" className={buttonVariants({ className: 'w-full rounded-lg font-bold' })}>
+          <Link href="/practice" className={buttonVariants({ className: 'w-full rounded-lg font-bold bg-[#ad2d1f] text-white hover:bg-[#992719] focus-visible:ring-[#ad2d1f]' })}>
             Start New Interview
           </Link>
         }
@@ -277,31 +277,31 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
       <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="app-page-container space-y-6 lg:px-6">
-          <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-500">
-              <Link href="/practice" className="transition hover:text-slate-950">
+          <header className="rounded-xl border border-[#e8ded4] bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-[#8a7c75]">
+              <Link href="/practice" className="text-[#ad2d1f] transition hover:text-[#992719]">
                 Interview Practice
               </Link>
-              <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
-              <span className="text-slate-950">Feedback</span>
+              <ChevronRight className="h-4 w-4 text-[#a3958b]" aria-hidden="true" />
+              <span className="text-[#271f1b]">Feedback</span>
             </div>
 
             <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
-                <h1 className="text-2xl font-extrabold text-slate-950 sm:text-3xl">Interview Feedback</h1>
-                <p className="mt-2 text-base font-semibold leading-7 text-slate-500">
+                <h1 className="text-2xl font-extrabold text-[#271f1b] sm:text-3xl">Interview Feedback</h1>
+                <p className="mt-2 text-base font-semibold leading-7 text-[#8a7c75]">
                   Review your answers and AI feedback from this session.
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Badge className="border-0 bg-indigo-50 px-3 py-1 text-indigo-700">{feedback.title}</Badge>
-                <Badge className="gap-2 border-0 bg-slate-100 px-3 py-1 text-slate-600">
+                <Badge className="border-0 bg-[#fff1e9] px-3 py-1 text-[#992719]">{feedback.title}</Badge>
+                <Badge className="gap-2 border-0 bg-[#f5efe8] px-3 py-1 text-[#71645e]">
                   <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                   {formatDate(feedback.completedAt)}
                 </Badge>
@@ -312,8 +312,8 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
           <FeedbackSummaryCard feedback={feedback} />
 
           {reportStatus === 'loading' ? (
-            <Card className="rounded-xl border-indigo-100 bg-indigo-50/60 shadow-sm">
-              <CardContent className="flex items-center gap-3 p-5 text-sm font-bold text-indigo-900">
+            <Card className="rounded-xl border-[#ead8cc] bg-[#fff1e9]/60 shadow-sm">
+              <CardContent className="flex items-center gap-3 p-5 text-sm font-bold text-[#71382b]">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 {reportMessage || 'Generating full AI report...'}
               </CardContent>
@@ -333,8 +333,8 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
 
           <section className="space-y-4">
             <div>
-              <h2 className="text-xl font-extrabold text-slate-950">Question Feedback</h2>
-              <p className="mt-1 text-sm font-semibold text-slate-500">One review card per completed interview question.</p>
+              <h2 className="text-xl font-extrabold text-[#271f1b]">Question Feedback</h2>
+              <p className="mt-1 text-sm font-semibold text-[#8a7c75]">One review card per completed interview question.</p>
             </div>
 
             {feedback.items.map((item) => (
@@ -342,15 +342,15 @@ export function InterviewFeedbackPage({ sessionId }: InterviewFeedbackPageProps)
             ))}
           </section>
 
-          <footer className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <Link href="/dashboard" className={buttonVariants({ variant: 'outline', className: 'rounded-lg font-bold' })}>
+          <footer className="flex flex-col gap-3 rounded-xl border border-[#e8ded4] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <Link href="/dashboard" className={buttonVariants({ variant: 'outline', className: 'rounded-lg font-bold border-[#e8ded4] text-[#71645e] hover:bg-[#faf7f2] focus-visible:ring-[#ad2d1f]' })}>
               Back to Dashboard
             </Link>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link href={`/practice/session?mode=${feedback.mode}`} className={buttonVariants({ variant: 'secondary', className: 'rounded-lg font-bold' })}>
+              <Link href={`/practice/session?mode=${feedback.mode}`} className={buttonVariants({ variant: 'secondary', className: 'rounded-lg font-bold bg-[#f5efe8] text-[#71645e] hover:bg-[#e8ded4] focus-visible:ring-[#ad2d1f]' })}>
                 Practice Similar Questions
               </Link>
-              <Link href="/practice" className={buttonVariants({ className: 'rounded-lg font-bold' })}>
+              <Link href="/practice" className={buttonVariants({ className: 'rounded-lg font-bold bg-[#ad2d1f] text-white hover:bg-[#992719] focus-visible:ring-[#ad2d1f]' })}>
                 Start New Interview
               </Link>
             </div>
