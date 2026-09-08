@@ -18,6 +18,7 @@ ADMIN_EMAILS: list[str] = [
     "Kaushik13.shivakumar@gmail.com",
     "sobhiralakarthik@gmail.com",
     "klyne@yournextsteps-us.org",
+    "ejmain.4@gmail.com",
 ]
 
 
