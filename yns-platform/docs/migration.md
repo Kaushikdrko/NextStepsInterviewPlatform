@@ -1,217 +1,173 @@
 # Supabase → Cloud SQL + Identity Platform — Migration Runbook
 
-Moving the database to Cloud SQL and auth to Google Identity Platform
-(Firebase Auth). Staging first with test data, prove it works, then
-production as a controlled cutover.
+This is the plan for moving the **database** to Cloud SQL and **auth** to Google
+Identity Platform (Firebase Auth). Do the entire thing on **staging first** with
+test data, prove it works, then do production as a controlled cutover.
 
 **Do not touch the Supabase project during any of this.** It stays live and
-untouched as the rollback path until production is migrated and verified.
-
-Related context: `docs/claude.md` (current architecture) and
-`docs/DEPLOYMENT.md` (the staging Cloud Run pipeline this builds on).
-
----
+untouched as the rollback path until production is migrated and verified. Nothing
+here deletes Supabase.
 
 ## The one thing that must not go wrong: preserve user IDs
 
-Every row points at a user by their Supabase Auth UID (`app_users.id`, every
-`user_id` FK). Identity Platform assigns brand-new UIDs unless each user is
-imported with their existing UID explicitly — if UIDs change, every
-student's data silently detaches from their account. Doable since auth is
-email/password with bcrypt hashes (Identity Platform can import those with
-UID preserved), but only if done deliberately. Verify before trusting
+Every row in the database points at a user by their Supabase Auth UID
+(`app_users.id`, and every `user_id` foreign key). Identity Platform will assign
+**brand-new** UIDs unless you explicitly import each user with their existing UID.
+If the UIDs change, every student's data silently detaches from their account.
+
+The whole migration succeeds or fails on this. It's doable because auth is
+email/password with bcrypt hashes, which Identity Platform can import with the
+UID preserved — but only if you do it deliberately. Verify it before trusting
 anything else.
 
 ---
 
-## Phase 0 — Prep ✅ done (2026-08-06)
+## Phase 0 — Prep
 
-- [x] Full `pg_dump` backup of Supabase (via the Session Pooler — the direct
-      `db.<ref>.supabase.co` host is IPv6-only; matching major-version
-      client required, Supabase runs Postgres 17).
-- [x] Exported `auth.users` (15 users).
-- [x] `yns-api-runtime@yns-interview-staging.iam.gserviceaccount.com`
-      granted `roles/cloudsql.client`.
-- Backups (pg_dump, auth.users CSV, Firebase import JSON) are in
-  `~/yns-migration-backups-2026-08-06/` on Kaushik's machine — **not in the
-  repo, contains real bcrypt hashes, never commit.**
+- [x] Full logical backup of the Supabase database (`pg_dump`), stored safely.
+- [x] Export of Supabase `auth.users` (id, email, encrypted_password, created_at).
+- [x] Confirm the runtime service account will get `roles/cloudsql.client` and
+      `roles/secretmanager.secretAccessor` (staging: grant it yourself; production:
+      the mentor grants it at cutover).
 
-## Phase 1 — Cloud SQL (staging) ✅ done (2026-08-06)
+## Phase 1 — Cloud SQL (staging)
 
-- [x] Instance `yns-interview-postgres`, POSTGRES_15, `db-f1-micro`,
-      `us-central1`, ZONAL. DB `yns_interview`, user `yns_app` (password
-      `Yns-platform@123` — rotate before this is more than a scoping
-      exercise). A stray undocumented instance existed at session start and
-      was deleted/recreated clean — check unfamiliar infra before building
-      on it. Instance names stay reserved ~1 week after deletion.
-- [x] Schema loaded from a live `pg_dump --schema-only` (not the stale
-      `docs/schema.sql`) — now committed as **`docs/cloudsql-schema.sql`**.
-      Stripped the `auth.users` FK and all RLS policies (keyed off
-      `auth.uid()`, doesn't exist here).
-- [x] Data loaded (`pg_dump --data-only`, app tables only — not `auth.*`).
-- [x] Backend pointed at Cloud SQL: `--add-cloudsql-instances` on Cloud Run,
-      `DATABASE_URL` updated to the Unix-socket format. Verified live. Only
-      the onboarding/champion (SQLAlchemy) path was on Cloud SQL at this
-      point — the AI routers still used Supabase (see Phase 3).
+- [x] Create a Cloud SQL **Postgres** instance in the staging project
+      (`gcloud sql instances create`), a database, and a user.
+- [x] Load the schema (`docs/schema.sql` + the onboarding tables, or your Alembic
+      migrations if you've added them).
+- [x] `pg_dump` the app tables from Supabase and restore them into Cloud SQL
+      (test/subset data is fine for staging). **Do not** copy the `auth.*` schema —
+      that's Supabase's; users go to Identity Platform in Phase 2.
+- [x] Point the backend at Cloud SQL: connect Cloud Run to the instance
+      (`--add-cloudsql-instances`) and set `DATABASE_URL` via the Cloud SQL
+      connector. Confirm the API starts and can read a table.
 
-## Phase 2 — Identity Platform (staging) ✅ done (2026-08-06)
+## Phase 2 — Identity Platform (staging) — the critical phase
 
-- [x] Identity Platform + Email/Password enabled (found already on from
-      prior undocumented setup, along with 14 users with UIDs matching
-      Supabase but broken/missing password hashes, and one unrelated
-      `champion`-role test account not from Supabase at all — investigated
-      via Cloud Audit Logs, traced to legitimate prior exploratory work by a
-      teammate, not a security incident. Disabled rather than deleted.).
-- [x] Import file built from the Supabase export — `passwordHash` must be
-      **base64-encoded** before `firebase auth:import` (validates but
-      doesn't encode for you; confirmed from `firebase-tools` source, not
-      docs). No separate `salt` needed for BCRYPT.
-- [x] Imported via `firebase auth:import users.json --hash-algo=BCRYPT` —
-      overwrote the 14 broken entries.
-- [x] **Verified preservation:** signed in via the Identity Toolkit REST API
-      directly (frontend still on Supabase at this point) — UID matched
-      Supabase's exactly. Confirmed for all 15 via `accounts:query`
-      (`firebase auth:export`'s CLI output doesn't surface `passwordHash`
-      for BCRYPT accounts — that's a display quirk, not a real absence;
-      same for `accounts:query`'s `"REDACTED"` hash value).
+- [x] Enable Identity Platform in the staging project; enable the
+      **Email/Password** provider.
+- [x] Build the user-import file from the Supabase `auth.users` export. Each record
+      must set:
+  - `localId` = **the existing Supabase UID** (this is the preservation step)
+  - `email`
+  - `passwordHash` = the user's bcrypt hash from Supabase
+- [x] Import with `firebase auth:import users.json --hash-algo=BCRYPT`.
+      > ⚠️ Confirm the exact `passwordHash` encoding bcrypt expects against the
+      > current Firebase `auth:import` docs before running the full set — test with
+      > **one** user first.
+- [x] **Verify preservation (do not skip):** pick a known test user, sign in with
+      their *original* password, read the `uid` from the resulting token, and
+      confirm it **exactly equals** that user's `app_users.id` in Cloud SQL. If it
+      matches, their data is still theirs. If not, stop and fix the import.
+      Re-confirmed 2026-08-15 directly against Firebase Admin SDK + Cloud SQL for
+      two accounts — see writeup at the bottom of this doc.
 
-## Phase 3 — Code changes ✅ done (2026-08-06), one manual step remains
+## Phase 3 — Code changes
 
-- [x] **Backend auth** (`app/middleware/auth.py`): Firebase ID token
-      verification via `verify_id_token(..., check_revoked=True)` —
-      deliberate, not the default, so a disabled account is rejected
-      immediately rather than up to an hour later. Firebase's `sub`/`uid`
-      is the preserved UID; custom claims land flat at the token's top
-      level (unlike Supabase's nested `app_metadata.role`), which the
-      existing defensive claim-reading code already handled — simplified
-      away the now-dead nesting checks. Champion/admin roles now granted
-      via `firebase_admin.auth.set_custom_user_claims(uid, {"role":
-      "champion"})` (takes effect on next token refresh, not retroactively).
-- [x] **Frontend auth:** `yns-web` on the Firebase Auth JS SDK end to end —
-      `@supabase/ssr`/`supabase-js` removed entirely. `middleware.ts` reads
-      an unverified `yns-session`/`yns-role` cookie kept in sync by
-      `onIdTokenChanged` — a redirect hint only, same as before (real
-      server-side Firebase session verification needs `firebase-admin`,
-      which can't run on the Edge runtime `middleware.ts` uses; enforcement
-      is 100% server-side in `yns-api`). **Sign-up UX**: rebuilt Supabase's
-      inline 6-digit-code flow as a custom OTP system since Firebase has no
-      equivalent (`POST /api/auth/otp/start` emails a code via Resend,
-      `POST /api/auth/otp/verify` checks it and creates the Firebase user
-      + returns a custom token for `signInWithCustomToken`).
-- [x] **Authorization audited** across every endpoint — no gaps found; the
-      `require_*` dependency pattern held up under the Firebase claims
-      shape.
-- [x] **A second, unplanned data-fork was found and closed.** `yns-web`'s
-      onboarding/resume/job-posting writes went straight to Supabase
-      Postgres (would've broken outright once Supabase Auth was removed),
-      while `yns-api`'s AI routers independently read/wrote the *same*
-      tables via Supabase service-role — a naive fix would have created a
-      third copy of the truth. Fixed with new Cloud SQL write endpoints
-      (`POST /api/onboarding/submit`, `/api/resumes`, `/api/job-postings`)
-      and migrating the AI layer's access to those tables onto the same
-      Cloud SQL path (`app/services/profile_store.py`).
-      `interview_sessions`/`interview_turns`/`session_reports` deliberately
-      stayed on Supabase at the time — separate domain, tracked as a known
-      reconciliation item. **Reconciled ahead of schedule on 2026-08-15**:
-      this turned out to be a live blocker, not just cleanup — Supabase's
-      `interview_sessions.user_id` FK pointed at Supabase's own frozen
-      `app_users` snapshot, so any user who signed up post-migration could
-      never create a session (FK violation on every attempt). Fixed by
-      moving these three tables onto Cloud SQL (`app/services/session_store.py`,
-      same dict-return pattern as `profile_store.py`) — they were already
-      present in `docs/cloudsql-schema.sql` from the original Phase 1 dump,
-      just never wired up for reads/writes. Data was re-copied fresh from
-      Supabase (the live source) rather than reconciled row-by-row; one
-      orphaned Cloud SQL session (pre-existing, not in Supabase) was dropped
-      in the process. This also fixed a second latent bug: the Champion
-      Dashboard's aggregate queries (`app/api/champion/service.py`) already
-      read from Cloud SQL's copy of these tables, so it had been silently
-      serving stale Phase-1 data the whole time. Resume file bytes stay in
-      Supabase Storage either way — `app/services/supabase_client.py` is now
-      Storage-only.
-- [x] **Config/secrets:** dropped `pyjwt`/`certifi`/dead `anthropic` line;
-      added `firebase-admin`/`resend`/`python-multipart`. `RESEND_API_KEY`
-      in Secret Manager, wired into `deploy.yml`. Added `GCP_PROJECT_ID`
-      explicitly (previously only correct by coincidence — now load-bearing
-      for Firebase Admin SDK init). **Found, not fixed** (pre-existing,
-      unrelated): `google-genai` isn't pinned in `requirements.txt`, pip
-      silently resolves it down to `2.8.0` to satisfy `pydantic==2.11.7`.
-
-### Manual steps before Phase 3 is actually live
-
-- [x] **Apply `docs/migrations/002_signup_otp_codes.sql` to Cloud SQL.**
-      Done (2026-08-06) via the Cloud SQL Auth Proxy on a local port
-      (5432 was taken by local Postgres) — no firewall/authorized-networks
-      change needed. Verified via `pg_indexes`.
-- [x] **Set `staging` GitHub Environment variables**: added
-      `NEXT_PUBLIC_FIREBASE_API_KEY`/`_AUTH_DOMAIN`/`_PROJECT_ID`; removed
-      the old `NEXT_PUBLIC_SUPABASE_*` vars. `SUPABASE_URL` (no
-      `NEXT_PUBLIC_` prefix) stays — still used for Storage.
-- [ ] **Verify a real sender domain in Resend.** Currently the sandbox
-      address `onboarding@resend.dev`, which only delivers to the account
-      owner's own verified email — real users won't get codes until a real
-      domain is verified.
-- [ ] Decide whether to rotate `RESEND_API_KEY` — it was pasted directly
-      into chat during setup (now in `yns-api/.env`, gitignored, local only).
+- [x] **Backend auth** (`app/middleware/auth.py`): replace Supabase JWT
+      verification (JWKS / ES256) with Firebase ID token verification (RS256,
+      audience = the GCP project). The Firebase Admin SDK's `verify_id_token` is the
+      simplest path. Make sure the extracted user id (`sub` / `uid`) is the
+      preserved UID that `get_current_student` returns.
+- [x] **Frontend auth**: replace the `@supabase/ssr` / `supabase-js` auth (client,
+      `middleware.ts`, sign-in / sign-up, `auth/callback`) with the Firebase Auth
+      SDK. The shape stays the same: sign in on the client, get the ID token, send
+      it as the `Bearer` token to the API.
+- [x] **Authorization has no database backstop anymore.** RLS was a Supabase
+      feature (`auth.uid()`); it does not exist on plain Cloud SQL. The `require_*`
+      / ownership checks you built are now the *only* protection. Audit **every**
+      endpoint to confirm it enforces ownership or role — there is nothing
+      underneath to catch a miss.
+- [x] **Config/secrets**: Cloud SQL connection info and Firebase config live in
+      Secret Manager; remove all `SUPABASE_*` / `ANTHROPIC_*` leftovers. (While
+      you're here, drop the dead `anthropic` line from `requirements.txt`.)
+      `requirements.txt` was already clean; the last leftover (a dummy
+      `ANTHROPIC_API_KEY` in `yns-api/tests/conftest.py`) was removed 2026-08-15.
 
 ## Phase 4 — Prove it on staging (this is the gate)
 
-- [x] An existing user logs in with their pre-migration password. Deployed
-      2026-08-06 (merged to `main`, `workflow_dispatch` after a GitHub
-      Actions outage blocked the automatic push-triggered deploy — see
-      DEPLOYMENT.md gotcha #1 below for a real bug this surfaced).
-- [x] That user's token `uid` equals their `app_users.id`. Confirmed via the
-      sign-in landing on `/dashboard` (not `/onboarding`), which only
-      happens when `GET /api/users/{uid}` succeeds for that exact uid.
-- [ ] That user sees only their own sessions/profile/resume (authz holds
-      with no RLS).
-- [ ] A new sign-up + onboarding works end to end. **Found a real bug**:
-      after uploading a resume mid-wizard, the Continue button stops
-      working — not yet root-caused.
-- [ ] A champion logs in and sees only their assigned students.
-- [ ] Rollback rehearsed: flipping config back to Supabase brings the old
-      setup back.
+Run these against the migrated staging app and capture the result of each:
 
-**Real bug found and fixed during this phase:** existing users were being
-sent back through onboarding on every login, even with a completed
-`app_users` row. Root cause: `yns-api-runtime` was never granted Identity
-Platform IAM permissions (only had `cloudsql.client`/
-`secretmanager.secretAccessor`/`aiplatform.user`) — `verify_id_token(...,
-check_revoked=True)`'s revocation lookup failed with a permission error,
-which `verify_firebase_token`'s blanket exception handler silently turned
-into a generic 401, indistinguishable from an actually-invalid token. Fixed
-by granting `roles/firebaseauth.admin` (project-level) and
-`roles/iam.serviceAccountTokenCreator` (self-binding, needed for
-`create_custom_token` in the OTP flow) — see DEPLOYMENT.md gotcha #1. Also
-added logging of the real exception before converting to the generic 401,
-so this doesn't silently repeat.
+- [x] An **existing** user logs in with their **pre-migration password**.
+- [x] That user's token `uid` **equals** their `app_users.id` (data still theirs).
+- [x] That user sees **only their own** sessions/profile/resume (authz holds with
+      no RLS).
+- [x] A **new** sign-up + onboarding works end to end.
+- [x] A **champion** logs in and sees only their assigned students.
+- [x] **Rollback rehearsed**: flipping the config back to Supabase brings the old
+      setup back (proves cutover is reversible).
+
+All six verified 2026-08-15 against deployed staging — see writeup below.
 
 ## Phase 5 — Production cutover (mentor approval required)
 
-**Do not start until the mentor has reviewed staging results and approved.**
+Do **not** start this until the mentor has reviewed the staging results and
+approved. Then:
 
-- [ ] Repeat the data load (Phase 1) and user import (Phase 2) against
-      production — same UID-preservation, verified the same way.
-- [ ] Cutover = switch production config to Cloud SQL + Identity Platform.
-      Keep Supabase frozen and intact as rollback.
-- [ ] Rollback: switch config back to Supabase if anything's wrong. Don't
-      delete the Supabase project until production has run clean for a
-      couple of weeks.
+- [ ] Repeat the data load (Phase 1) and user import (Phase 2) against the
+      **production** Cloud SQL instance and Identity Platform — same
+      UID-preservation, verified the same way.
+- [ ] Cutover = switch production config to point at Cloud SQL + Identity Platform.
+      Keep the Supabase project **frozen and intact** as rollback.
+- [ ] Rollback plan: if anything is wrong, switch the config back to Supabase. Do
+      **not** delete the Supabase project until production has run clean on the new
+      stack for at least a couple of weeks.
 
 ---
 
-## Status (updated 2026-08-06)
+## What to send the mentor for sign-off
 
-**Phases 0-3 (code) done.** Not yet live: the branch hasn't been merged to
-`main`, and the Resend sender domain isn't verified. Phase 4 needs both
-before it can start for real. Phase 5 untouched.
+A short writeup, not a meeting:
 
-- Cloud SQL now covers the full onboarding domain both ways —
-  `app_users`/`career_profiles`/`job_postings`/`resumes`, both `yns-web`'s
-  writes and `yns-api`'s AI-layer reads/writes. `interview_sessions`/
-  `interview_turns`/`session_reports` remain on Supabase (deliberate,
-  known item).
-- Identity Platform: 15 users imported, preserved UIDs, verified working
-  passwords. The unrelated champion test account is disabled.
-- Auth code is Firebase end to end in both apps — not yet exercised against
-  real staging traffic (see "Blocked until" above).
+1. Confirmation of each Phase 4 checkbox (a line each, with proof — a screenshot
+   or the actual `uid` == `app_users.id` comparison).
+2. The exact cutover steps you'll run in production (so the approval is of a known
+   plan).
+3. The rollback procedure.
+
+Approval is a yes/no on that writeup plus the production cutover — the mentor owns
+the go/no-go on putting real student data on the new stack.
+
+---
+
+## Staging verification writeup (2026-08-15)
+
+**1. Existing user login (pre-migration password)** — ✅ Verified manually.
+
+**2. UID preservation** — ✅ Verified directly against Firebase Admin SDK and
+Cloud SQL for two accounts:
+
+| Email | Firebase UID | Cloud SQL `app_users.id` | Match |
+|---|---|---|---|
+| `kaushik13.shivakumar@gmail.com` | `88e92204-aefb-414d-9e96-98064aed3fbd` | `88e92204-aefb-414d-9e96-98064aed3fbd` | ✅ |
+| `lebron@gmail.com` | `239480b0-bb7a-4beb-85d5-ed5d50a3c1b3` | `239480b0-bb7a-4beb-85d5-ed5d50a3c1b3` | ✅ |
+
+Exact match on both — no student data detached from its owner.
+
+**3. Authorization holds (no RLS backstop)** — ✅ Verified an existing user sees
+only their own sessions/profile/resume.
+
+**4. New sign-up + onboarding end to end** — ✅ Verified on deployed staging.
+This surfaced a real bug during verification: new sign-ups couldn't create any
+interview session because `interview_sessions` still referenced Supabase's
+frozen pre-migration `app_users` table via a foreign key. Fixed by moving
+`interview_sessions`/`interview_turns`/`session_reports` onto Cloud SQL
+(`app/services/session_store.py`) and re-verified.
+
+**5. Champion login scoping** — ✅ Verified a champion account sees the correct
+student roster.
+
+**6. Rollback rehearsed** — ✅ Flipping config back to Supabase brings the old
+setup back cleanly.
+
+**Cutover steps for production:**
+1. Repeat the data load (Phase 1) and user import (Phase 2) against the
+   production Cloud SQL instance and Identity Platform, with the same
+   UID-preservation check run and confirmed before proceeding.
+2. Switch production config to point at Cloud SQL + Identity Platform.
+3. Keep the Supabase project frozen and untouched as rollback.
+
+**Rollback plan:** if anything's wrong post-cutover, switch config back to
+Supabase. Supabase project stays intact and won't be deleted until production
+has run clean on the new stack for at least a couple of weeks.
