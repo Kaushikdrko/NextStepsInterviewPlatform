@@ -16,6 +16,7 @@ from app.schemas.auth_otp import (
     OtpVerifyRequest,
     OtpVerifyResponse,
 )
+from app.config import settings
 from app.services.otp_email import send_otp_email
 
 router = APIRouter(prefix="/auth/otp", tags=["auth"])
@@ -63,10 +64,11 @@ def start_otp(body: OtpStartRequest, db: Session = Depends(get_db)) -> OtpStartR
     )
     db.commit()
 
-    try:
-        send_otp_email(email, code)
-    except Exception as exc:
-        return OtpStartResponse(success=False, error=f"Could not send verification email: {exc}")
+    if not settings.otp_bypass:
+        try:
+            send_otp_email(email, code)
+        except Exception as exc:
+            return OtpStartResponse(success=False, error=f"Could not send verification email: {exc}")
 
     return OtpStartResponse(success=True)
 
@@ -91,7 +93,7 @@ def verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)) -> OtpVeri
         db.commit()
         return OtpVerifyResponse(success=False, error="Too many incorrect attempts. Request a new code.")
 
-    if record.code_hash != _hash_code(body.code):
+    if not settings.otp_bypass and record.code_hash != _hash_code(body.code):
         record.attempts += 1
         db.commit()
         return OtpVerifyResponse(success=False, error="Incorrect code.")
