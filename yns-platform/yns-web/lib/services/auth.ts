@@ -1,7 +1,7 @@
 import { sendPasswordResetEmail, type User } from "firebase/auth";
 
 import { getFirebaseAuth, setChampionRoleCookie } from "@/lib/firebase/client";
-import { apiFetch } from "@/lib/utils/api-client";
+import { ApiError, apiFetch } from "@/lib/utils/api-client";
 
 export const MAIN_APP_ROUTE = "/dashboard";
 export const CHAMPION_APP_ROUTE = "/champion/dashboard";
@@ -13,6 +13,9 @@ export const ONBOARDING_ROUTE = "/onboarding";
  * nothing here is stored against the user.
  */
 export type LoginMode = "student" | "champion";
+
+export const STUDENT_ACCESS_UNVERIFIED_MESSAGE =
+  "We could not load your profile right now. Please try signing in again in a moment.";
 
 export const CHAMPION_ACCESS_DENIED_MESSAGE = "This account does not have Champion access.";
 export const CHAMPION_ACCESS_UNVERIFIED_MESSAGE =
@@ -59,11 +62,17 @@ async function studentRoute(userId: string): Promise<string> {
   try {
     const user = await apiFetch<UserResponse>(`/api/users/${userId}`);
 
+    if (typeof user.onboarding_completed !== "boolean") {
+      throw new Error(STUDENT_ACCESS_UNVERIFIED_MESSAGE);
+    }
     return user.onboarding_completed ? MAIN_APP_ROUTE : ONBOARDING_ROUTE;
-  } catch {
-    // No app_users row yet (new sign-up) or the request failed — send them
-    // through onboarding, same as the old "no row found" branch.
-    return ONBOARDING_ROUTE;
+  } catch (error) {
+    // Only a confirmed missing profile should enter onboarding. A failed
+    // lookup must not be interpreted as an incomplete profile.
+    if (error instanceof ApiError && error.status === 404) {
+      return ONBOARDING_ROUTE;
+    }
+    throw new Error(STUDENT_ACCESS_UNVERIFIED_MESSAGE);
   }
 }
 
@@ -72,7 +81,11 @@ export async function getPostLoginRedirect(
   mode: LoginMode = "student",
 ): Promise<RedirectResult> {
   if (mode === "student") {
-    return { redirectTo: await studentRoute(userId) };
+    try {
+      return { redirectTo: await studentRoute(userId) };
+    } catch {
+      return { redirectTo: null, error: STUDENT_ACCESS_UNVERIFIED_MESSAGE };
+    }
   }
 
   let authorized: boolean;
@@ -89,11 +102,18 @@ export async function getPostLoginRedirect(
     // Champions skip the onboarding gate, but someone who picked this mode by
     // mistake is already signed in, so offer their student destination rather
     // than signing them out.
-    return {
-      redirectTo: null,
-      error: CHAMPION_ACCESS_DENIED_MESSAGE,
-      studentRoute: await studentRoute(userId),
-    };
+    try {
+      return {
+        redirectTo: null,
+        error: CHAMPION_ACCESS_DENIED_MESSAGE,
+        studentRoute: await studentRoute(userId),
+      };
+    } catch {
+      return {
+        redirectTo: null,
+        error: `${CHAMPION_ACCESS_DENIED_MESSAGE} ${STUDENT_ACCESS_UNVERIFIED_MESSAGE}`,
+      };
+    }
   }
 
   return { redirectTo: CHAMPION_APP_ROUTE };

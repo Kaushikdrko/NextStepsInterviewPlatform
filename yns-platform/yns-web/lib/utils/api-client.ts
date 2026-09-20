@@ -7,8 +7,8 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.
 export class ApiError extends Error {
   readonly status: number;
 
-  constructor(status: number) {
-    super(`API request failed: ${status}`);
+  constructor(status: number, detail?: string) {
+    super(detail || `API request failed: ${status}`);
     this.name = 'ApiError';
     this.status = status;
   }
@@ -48,7 +48,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status);
+    const detail = await response
+      .clone()
+      .json()
+      .then((body: unknown) => (body && typeof body === 'object' && 'detail' in body ? String((body as { detail: unknown }).detail) : undefined))
+      .catch(() => undefined);
+    throw new ApiError(response.status, detail);
   }
 
   return response.json() as Promise<T>;
