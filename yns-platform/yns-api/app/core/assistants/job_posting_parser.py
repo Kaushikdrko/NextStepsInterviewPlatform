@@ -29,4 +29,4 @@ def parse_job_posting_text(
         response_model=JobPostingFacts,
     )
 
-    return JobPostingFacts(**raw)
+    return JobPostingFacts(**{**raw, "company": company or raw.get("company"), "job_title": job_title or raw.get("job_title")})

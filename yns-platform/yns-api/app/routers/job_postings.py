@@ -36,6 +36,11 @@ def upsert_current_job_posting(
         job_posting = JobPosting(user_id=user_id, created_at=now)
         db.add(job_posting)
 
+    changed = any((getattr(job_posting, field) or "") != getattr(body, field).strip()
+                  for field in ("company", "job_title", "job_description", "posting_url"))
+    if changed:
+        job_posting.parsed_facts = None
+
     job_posting.company = body.company.strip() or None
     job_posting.job_title = body.job_title.strip() or None
     job_posting.job_description = body.job_description.strip() or None
@@ -65,3 +70,18 @@ def get_job_posting_for_user(
         raise HTTPException(status_code=404, detail="Job posting not found.")
 
     return job_posting
+
+
+class ImportPostingRequest(BaseModel):
+    url: str
+
+
+@router.post("/import")
+def import_job_posting(body: ImportPostingRequest, user_id: str = Depends(get_current_student)):
+    from app.services.job_posting_import import import_posting
+    try:
+        return import_posting(body.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Unable to read this posting link. Paste the job description instead.") from exc

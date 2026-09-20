@@ -31,6 +31,9 @@ class JobPostingFacts(BaseModel):
 
     model_config = {"extra": "forbid"}
 
+    company: str | None = None
+    job_title: str | None = None
+    company_values: list[str] = Field(default_factory=list)
     required_skills: list[str] = Field(default_factory=list, max_length=20)
     preferred_skills: list[str] = Field(default_factory=list, max_length=20)
     responsibilities: list[str] = Field(default_factory=list, max_length=15)

@@ -109,47 +109,47 @@ export function ProfileSummaryCard({ className }: ProfileSummaryCardProps) {
   const jobPostingAdded = hasJobPosting(summary);
 
   return (
-    <section className={cn('rounded-[10px] border border-slate-200 bg-white p-5 shadow-sm', className)}>
+    <section className={cn('rounded-[10px] border border-[#e8ded4] bg-white p-5 shadow-sm', className)}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-bold text-slate-950">Profile Summary</h2>
-        {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" aria-hidden="true" /> : null}
+        <h2 className="text-base font-bold text-[#271f1b]">Profile Summary</h2>
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-[#a3958b]" aria-hidden="true" /> : null}
       </div>
 
       {error ? <p className="mt-3 text-xs font-semibold leading-5 text-rose-600">{error}</p> : null}
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {profileRows.map((row) => (
-          <div key={row.label} className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
+          <div key={row.label} className="flex gap-3 rounded-lg border border-[#e8ded4] bg-[#faf7f2]/60 p-3">
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#fff1e9] text-[#ad2d1f]">
               <row.icon className="h-4 w-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-bold leading-none text-slate-500">{row.label}</p>
-              <p className="mt-1 text-sm font-bold leading-tight text-slate-950">{isLoading ? 'Loading...' : row.value}</p>
+              <p className="text-xs font-bold leading-none text-[#8a7c75]">{row.label}</p>
+              <p className="mt-1 text-sm font-bold leading-tight text-[#271f1b]">{isLoading ? 'Loading...' : row.value}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-4 border-t border-slate-200 pt-4">
-        <p className="text-xs font-bold text-slate-500">Skills</p>
+      <div className="mt-4 border-t border-[#e8ded4] pt-4">
+        <p className="text-xs font-bold text-[#8a7c75]">Skills</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {isLoading ? (
-            <span className="text-xs font-bold text-slate-400">Loading...</span>
+            <span className="text-xs font-bold text-[#a3958b]">Loading...</span>
           ) : skills.length > 0 ? (
             skills.map((skill) => (
-              <Badge key={skill} className="border-0 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+              <Badge key={skill} className="border-0 bg-[#f5efe8] px-2.5 py-1 text-xs font-bold text-[#71645e]">
                 {skill}
               </Badge>
             ))
           ) : (
-            <span className="text-xs font-bold text-slate-500">{emptyValue}</span>
+            <span className="text-xs font-bold text-[#8a7c75]">{emptyValue}</span>
           )}
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 text-sm font-bold text-slate-500 md:grid-cols-2">
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="mt-4 grid gap-3 border-t border-[#e8ded4] pt-4 text-sm font-bold text-[#8a7c75] md:grid-cols-2">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#e8ded4] bg-white p-3">
           <span className="flex items-center gap-2">
             <FileText className="h-4 w-4" aria-hidden="true" />
             Resume
@@ -159,7 +159,7 @@ export function ProfileSummaryCard({ className }: ProfileSummaryCardProps) {
             {isLoading ? 'Loading...' : resumeUploaded ? 'Uploaded' : 'Not uploaded'}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#e8ded4] bg-white p-3">
           <span className="flex items-center gap-2">
             <BriefcaseBusiness className="h-4 w-4" aria-hidden="true" />
             Job Posting

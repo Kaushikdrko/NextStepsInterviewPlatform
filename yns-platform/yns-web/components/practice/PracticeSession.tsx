@@ -42,7 +42,7 @@ import {
   type PlannedQuestion,
   type TurnEvaluation,
 } from '@/lib/services/interview-assistant';
-import { getCurrentJobPosting, saveCurrentJobPosting } from '@/lib/services/job-postings';
+import { getCurrentJobPosting, saveCurrentJobPosting, importJobPosting } from '@/lib/services/job-postings';
 import { cn } from '@/lib/utils';
 
 type PracticeMode = 'behavioral' | 'technical' | 'resume' | 'job_posting' | 'general';
@@ -189,7 +189,10 @@ export function PracticeSession() {
   const [isCompletingSession, setIsCompletingSession] = useState(false);
   const [completionError, setCompletionError] = useState('');
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
-  const [hasStartedSession, setHasStartedSession] = useState(selectedMode !== 'job_posting');
+  const [startedSessionMode, setStartedSessionMode] = useState<PracticeMode | null>(selectedMode !== 'job_posting' && selectedMode !== 'behavioral' ? selectedMode : null);
+  const hasStartedSession = startedSessionMode === selectedMode;
+  const [behavioralStyle, setBehavioralStyle] = useState<'general' | 'job'>('general');
+  const [isImportingPosting, setIsImportingPosting] = useState(false);
   const [jobPostingId, setJobPostingId] = useState<string | undefined>();
   const [jobCompany, setJobCompany] = useState('');
   const [jobTitle, setJobTitle] = useState('');
@@ -199,6 +202,7 @@ export function PracticeSession() {
   const [isSavingJobPosting, setIsSavingJobPosting] = useState(false);
   const [jobPostingMessage, setJobPostingMessage] = useState('');
   const [jobPostingError, setJobPostingError] = useState('');
+  const selectedPostingId = selectedMode === 'job_posting' || (selectedMode === 'behavioral' && behavioralStyle === 'job') ? jobPostingId : undefined;
   const answerActionInFlightRef = useRef(false);
   const completionInFlightRef = useRef(false);
 
@@ -294,12 +298,12 @@ export function PracticeSession() {
     setAssistantError('');
     setIsPreparingAssistant(false);
     setIsSubmittingAnswer(false);
-    setHasStartedSession(selectedMode !== 'job_posting');
+    setStartedSessionMode(selectedMode !== 'job_posting' && selectedMode !== 'behavioral' ? selectedMode : null);
     setShowEndSessionModal(false);
   }, [selectedMode, assistantRestartKey]);
 
   useEffect(() => {
-    if (!assistantSessionType) {
+    if (!assistantSessionType || !hasStartedSession) {
       return;
     }
 
@@ -311,14 +315,17 @@ export function PracticeSession() {
         setIsPreparingAssistant(true);
         setAssistantError('');
 
-        const assistantSession = await createAssistantSession(sessionType);
+        const assistantSession = await createAssistantSession(sessionType, {
+          use_job_posting: selectedMode !== 'behavioral' || behavioralStyle === 'job',
+          job_posting_id: selectedPostingId,
+        });
 
         if (!isMounted) return;
 
         const plannedQuestions = assistantSession.session_plan.questions.map((question) => mapPlannedQuestion(question, selectedMode));
 
         if (plannedQuestions.length === 0) {
-          throw new Error('AI did not return any questions. Using built-in practice questions.');
+          throw new Error('AI did not return any questions. Please try starting the interview again.');
         }
 
         setAssistantSessionId(assistantSession.session_id);
@@ -330,7 +337,12 @@ export function PracticeSession() {
         if (isMounted) {
           setAssistantSessionId(null);
           setAssistantQuestions([]);
-          setAssistantError(error instanceof Error ? error.message : 'AI assistant is unavailable. Using built-in practice questions.');
+          const message = error instanceof Error ? error.message : 'Unable to prepare your interview. Please try again.';
+          setAssistantError(message);
+          if (selectedMode === 'behavioral' || selectedMode === 'job_posting') {
+            setJobPostingError(message);
+            setStartedSessionMode(null);
+          }
         }
       } finally {
         if (isMounted) {
@@ -344,10 +356,10 @@ export function PracticeSession() {
     return () => {
       isMounted = false;
     };
-  }, [assistantSessionType, selectedMode]);
+  }, [assistantSessionType, selectedMode, hasStartedSession, behavioralStyle, selectedPostingId, assistantRestartKey]);
 
   useEffect(() => {
-    if (selectedMode !== 'job_posting') return;
+    if (selectedMode !== 'job_posting' && selectedMode !== 'behavioral') return;
 
     let isMounted = true;
 
@@ -585,10 +597,32 @@ export function PracticeSession() {
     setIsPreparingAssistant(false);
     setIsSubmittingAnswer(false);
     setAssistantRestartKey((key) => key + 1);
-    setHasStartedSession(selectedMode !== 'job_posting');
+    setStartedSessionMode(selectedMode !== 'job_posting' && selectedMode !== 'behavioral' ? selectedMode : null);
+  };
+
+  const handleImportPosting = async () => {
+    try {
+      setIsImportingPosting(true);
+      setJobPostingError('');
+      const posting = await importJobPosting(jobPostingUrl);
+      setJobCompany(posting.company);
+      setJobTitle(posting.job_title);
+      setJobDescription(posting.job_description);
+      setJobPostingMessage('Posting imported. Review the details before starting.');
+    } catch (error) {
+      setJobPostingError(error instanceof Error ? error.message : 'Unable to read this link. Paste the description below.');
+    } finally {
+      setIsImportingPosting(false);
+    }
   };
 
   const startJobPostingSession = async () => {
+    if (selectedMode === 'behavioral' && behavioralStyle === 'general') {
+      setJobPostingError('');
+      setAssistantError('');
+      setStartedSessionMode(selectedMode);
+      return;
+    }
     if (!jobDescription.trim()) {
       setJobPostingError('Add a job description before starting this interview.');
       return;
@@ -617,7 +651,7 @@ export function PracticeSession() {
       setIsSubmitted(false);
       setSessionTimeSeconds(0);
       setQuestionTimeSeconds(0);
-      setHasStartedSession(true);
+      setStartedSessionMode(selectedMode);
     } catch (error) {
       setJobPostingError(error instanceof Error ? error.message : 'Unable to save your job posting.');
     } finally {
@@ -629,41 +663,41 @@ export function PracticeSession() {
     const answeredCount = submittedAnswers.filter((item) => item.answer.length > 0).length;
 
     return (
-      <main className="min-h-screen bg-slate-50 text-slate-950">
+      <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
         <Sidebar />
 
-        <div className="flex min-h-[calc(100svh-4rem)] items-center px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-          <section className="mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-sm">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+        <div className="flex min-h-[calc(100svh-4rem)] items-center px-4 py-7 sm:px-6 sm:py-9 lg:min-h-screen lg:pl-[220px]">
+          <section className="mx-auto w-full max-w-md rounded-[18px] border border-[#e8ded4] bg-white p-7 text-center shadow-sm">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff1e9] text-[#ad2d1f]">
               <Bot className="h-6 w-6" aria-hidden="true" />
             </span>
-            <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-slate-950">Interview Complete</h1>
-            <p className="mt-2 text-sm font-semibold text-slate-500">{title}</p>
+            <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-[#271f1b]">Interview Complete</h1>
+            <p className="mt-2 text-sm font-semibold text-[#8a7c75]">{title}</p>
 
             <div className="mt-6 grid grid-cols-2 gap-3 text-left">
-              <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase text-slate-400">Questions answered</p>
-                <p className="mt-1 text-xl font-extrabold text-slate-950">
+              <div className="rounded-xl bg-[#faf7f2] p-4">
+                <p className="text-xs font-bold uppercase text-[#a3958b]">Questions answered</p>
+                <p className="mt-1 text-xl font-extrabold text-[#271f1b]">
                   {answeredCount}/{questions.length}
                 </p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase text-slate-400">Total time</p>
-                <p className="mt-1 text-xl font-extrabold text-slate-950">{formatTime(sessionTimeSeconds)}</p>
+              <div className="rounded-xl bg-[#faf7f2] p-4">
+                <p className="text-xs font-bold uppercase text-[#a3958b]">Total time</p>
+                <p className="mt-1 text-xl font-extrabold text-[#271f1b]">{formatTime(sessionTimeSeconds)}</p>
               </div>
             </div>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/dashboard"
-                className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-[#e8ded4] bg-white px-4 text-sm font-bold text-[#71645e] transition hover:bg-[#faf7f2]"
               >
                 Back to Dashboard
               </Link>
               <button
                 type="button"
                 onClick={resetPractice}
-                className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition hover:bg-indigo-700"
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-[#ad2d1f] px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition hover:bg-[#992719]"
               >
                 Practice Again
               </button>
@@ -674,47 +708,62 @@ export function PracticeSession() {
     );
   }
 
-  if (selectedMode === 'job_posting' && !hasStartedSession) {
+  if ((selectedMode === 'job_posting' || selectedMode === 'behavioral') && !hasStartedSession) {
     return (
-      <main className="min-h-screen bg-slate-50 text-slate-950">
+      <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
         <Sidebar />
 
         <div className="min-h-[calc(100svh-4rem)] bg-[linear-gradient(180deg,#fbfaf7_0%,#fff4ef_100%)] px-4 py-5 sm:px-6 lg:min-h-screen lg:pl-[220px]">
           <div className="app-page-container lg:px-6">
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <Card className="rounded-2xl border-slate-200/80 shadow-lg shadow-slate-200/70">
+              <Card className="rounded-[18px] border-[#e8ded4]/80 shadow-lg shadow-slate-200/70">
                 <CardHeader className="p-5 pb-0 sm:p-6 sm:pb-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-4">
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-100">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[#ad2d1f] text-white shadow-md shadow-indigo-100">
                         <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
-                        <CardTitle className="text-xl font-extrabold text-slate-950">Job posting details</CardTitle>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Edit anything you want the interview to use.</p>
+                        <CardTitle className="text-xl font-extrabold text-[#271f1b]">{selectedMode === 'behavioral' ? 'Behavioral interview' : 'Job posting details'}</CardTitle>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-[#8a7c75]">Choose your practice focus and review anything you want the interview to use.</p>
                       </div>
                     </div>
-                    {isLoadingJobPosting ? <Loader2 className="mt-1 h-5 w-5 shrink-0 animate-spin text-slate-400" aria-hidden="true" /> : null}
+                    {isLoadingJobPosting ? <Loader2 className="mt-1 h-5 w-5 shrink-0 animate-spin text-[#a3958b]" aria-hidden="true" /> : null}
                   </div>
                 </CardHeader>
 
                 <CardContent className="p-5 sm:p-6">
+                  {jobPostingError && selectedMode === 'behavioral' && behavioralStyle === 'general' ? <Alert className="mb-6 border-rose-200 bg-rose-50 text-rose-800">{jobPostingError}</Alert> : null}
+                  {selectedMode === 'behavioral' ? (
+                    <fieldset className="mb-6 grid gap-3 sm:grid-cols-2">
+                      <legend className="mb-3 text-sm font-extrabold text-[#271f1b]">How would you like to practice?</legend>
+                      {([
+                        ['general', 'General behavioral interview', 'Practice with questions based on your background.'],
+                        ['job', 'Tailor to a job', 'Use a job description or import a posting link.'],
+                      ] as const).map(([value, label, description]) => (
+                        <label key={value} className={cn('cursor-pointer rounded-xl border p-4', behavioralStyle === value ? 'border-[#ad2d1f] bg-[#fff1e9]' : 'border-[#e8ded4] bg-[#faf7f2]')}>
+                          <input type="radio" name="behavioral-style" value={value} checked={behavioralStyle === value} onChange={() => setBehavioralStyle(value)} className="mr-2 accent-[#ad2d1f]" />
+                          <span className="text-sm font-extrabold">{label}</span>
+                          <p className="mt-2 text-sm text-[#8a7c75]">{description}</p>
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : null}
+                  {selectedMode !== 'behavioral' || behavioralStyle === 'job' ? <>
                   {jobPostingMessage ? (
-                    <Alert className={cn('mb-6 flex gap-3 border-indigo-100 bg-indigo-50 text-indigo-900', !jobPostingId && 'border-amber-200 bg-amber-50 text-amber-900')}>
+                    <Alert className={cn('mb-6 flex gap-3 border-[#ead8cc] bg-[#fff1e9] text-indigo-900', !jobPostingId && 'border-amber-200 bg-amber-50 text-amber-900')}>
                       <span
                         className={cn(
-                          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700',
+                          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-[#992719]',
                           !jobPostingId && 'bg-amber-100 text-amber-700',
                         )}
                       >
                         {jobPostingId ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : <AlertCircle className="h-4 w-4" aria-hidden="true" />}
                       </span>
                       <div>
-                        <p className="font-extrabold">{jobPostingId ? 'Onboarding job posting loaded' : 'No job posting found yet'}</p>
+                        <p className="font-extrabold">{jobPostingId ? 'Saved job posting' : 'Job posting details'}</p>
                         <p className="mt-1 font-semibold leading-6">
-                          {jobPostingId
-                            ? jobPostingMessage
-                            : 'Add the company, role title, and job description below to generate a tailored interview.'}
+                          {jobPostingMessage}
                         </p>
                       </div>
                     </Alert>
@@ -725,7 +774,7 @@ export function PracticeSession() {
                         <AlertCircle className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <div>
-                        <p className="font-extrabold">Could not save job posting</p>
+                        <p className="font-extrabold">Job posting needs attention</p>
                         <p className="mt-1 font-semibold leading-6">{jobPostingError}</p>
                       </div>
                     </Alert>
@@ -733,8 +782,8 @@ export function PracticeSession() {
 
                   <div className="grid gap-5 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="job-company" className="flex items-center gap-2 font-extrabold text-slate-950">
-                        <Building2 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                      <Label htmlFor="job-company" className="flex items-center gap-2 font-extrabold text-[#271f1b]">
+                        <Building2 className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
                         Company
                       </Label>
                       <Input
@@ -742,12 +791,12 @@ export function PracticeSession() {
                         value={jobCompany}
                         onChange={(event) => setJobCompany(event.target.value)}
                         placeholder="e.g. Stripe"
-                        className="h-12 rounded-xl border-slate-200 bg-slate-50/60 px-4 font-semibold focus-visible:bg-white"
+                        className="h-12 rounded-xl border-[#e8ded4] bg-[#faf7f2]/60 px-4 font-semibold focus-visible:bg-white"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="job-title" className="flex items-center gap-2 font-extrabold text-slate-950">
-                        <ShieldCheck className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                      <Label htmlFor="job-title" className="flex items-center gap-2 font-extrabold text-[#271f1b]">
+                        <ShieldCheck className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
                         Role title
                       </Label>
                       <Input
@@ -755,14 +804,14 @@ export function PracticeSession() {
                         value={jobTitle}
                         onChange={(event) => setJobTitle(event.target.value)}
                         placeholder="e.g. Software Engineer Intern"
-                        className="h-12 rounded-xl border-slate-200 bg-slate-50/60 px-4 font-semibold focus-visible:bg-white"
+                        className="h-12 rounded-xl border-[#e8ded4] bg-[#faf7f2]/60 px-4 font-semibold focus-visible:bg-white"
                       />
                     </div>
                   </div>
 
                   <div className="mt-5 space-y-2">
-                    <Label htmlFor="job-url" className="flex items-center gap-2 font-extrabold text-slate-950">
-                      <LinkIcon className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                    <Label htmlFor="job-url" className="flex items-center gap-2 font-extrabold text-[#271f1b]">
+                      <LinkIcon className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
                       Posting URL
                     </Label>
                     <Input
@@ -770,13 +819,17 @@ export function PracticeSession() {
                       value={jobPostingUrl}
                       onChange={(event) => setJobPostingUrl(event.target.value)}
                       placeholder="https://company.com/careers/software-engineer-intern"
-                      className="h-12 rounded-xl border-slate-200 bg-slate-50/60 px-4 font-semibold focus-visible:bg-white"
+                      className="h-12 rounded-xl border-[#e8ded4] bg-[#faf7f2]/60 px-4 font-semibold focus-visible:bg-white"
                     />
                   </div>
 
+                  <Button type="button" variant="outline" className="mt-3 rounded-xl" onClick={handleImportPosting} disabled={!jobPostingUrl.trim() || isImportingPosting || isSavingJobPosting}>
+                    {isImportingPosting ? 'Importing posting...' : 'Import from link'}
+                  </Button>
+                  <p className="mt-2 text-sm text-[#8a7c75]">If the link cannot be read, paste the description below.</p>
                   <div className="mt-5 space-y-2">
-                    <Label htmlFor="job-description" className="flex items-center gap-2 font-extrabold text-slate-950">
-                      <FileText className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                    <Label htmlFor="job-description" className="flex items-center gap-2 font-extrabold text-[#271f1b]">
+                      <FileText className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
                       Job description
                     </Label>
                     <Textarea
@@ -784,11 +837,12 @@ export function PracticeSession() {
                       value={jobDescription}
                       onChange={(event) => setJobDescription(event.target.value)}
                       placeholder="Paste the responsibilities, qualifications, preferred skills, and any notes from the posting..."
-                      className="min-h-[260px] resize-none rounded-xl border-slate-200 bg-slate-50/60 p-4 font-semibold leading-6 shadow-inner shadow-slate-100 focus-visible:bg-white"
+                      className="min-h-[260px] resize-none rounded-xl border-[#e8ded4] bg-[#faf7f2]/60 p-4 font-semibold leading-6 shadow-inner shadow-slate-100 focus-visible:bg-white"
                     />
-                    <p className="text-sm font-semibold leading-6 text-slate-500">Paste the full job description so the AI can generate more accurate questions.</p>
+                    <p className="text-sm font-semibold leading-6 text-[#8a7c75]">Paste the full job description so the AI can generate more accurate questions.</p>
                   </div>
 
+                  </> : null}
                   <Separator className="my-6" />
 
                   <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -798,31 +852,31 @@ export function PracticeSession() {
                     <Button
                       type="button"
                       onClick={startJobPostingSession}
-                      disabled={isSavingJobPosting || isLoadingJobPosting}
-                      className="h-12 w-full gap-2 rounded-xl bg-indigo-600 px-7 font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300 sm:w-auto"
+                      disabled={isSavingJobPosting || isImportingPosting || (isLoadingJobPosting && (selectedMode !== 'behavioral' || behavioralStyle === 'job'))}
+                      className="h-12 w-full gap-2 rounded-xl bg-[#ad2d1f] px-7 font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:bg-[#992719] disabled:cursor-not-allowed disabled:bg-indigo-300 sm:w-auto"
                     >
                       {isSavingJobPosting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-                      {isSavingJobPosting ? 'Saving...' : 'Save and Start Interview'}
+                      {isSavingJobPosting ? 'Saving...' : selectedMode === 'behavioral' && behavioralStyle === 'general' ? 'Start General Interview' : 'Save and Start Interview'}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              <aside className="space-y-5">
-                <Card className="rounded-2xl border-slate-200/80 shadow-lg shadow-slate-200/60">
+              <aside className="space-y-5 xl:sticky xl:top-8">
+                <Card className="rounded-[18px] border-[#e8ded4]/80 shadow-lg shadow-slate-200/60">
                   <CardContent className="p-5 sm:p-6">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-slate-950 text-white">
                       <Sparkles className="h-5 w-5" aria-hidden="true" />
                     </span>
-                    <h2 className="mt-4 text-lg font-extrabold text-slate-950">How this interview will be personalized</h2>
+                    <h2 className="mt-4 text-lg font-extrabold text-[#271f1b]">How this interview will be personalized</h2>
                     <div className="mt-5 space-y-4">
                       {[
-                        { icon: Building2, text: 'Questions based on the company and role' },
-                        { icon: FileText, text: 'Feedback tailored to the job responsibilities' },
+                        { icon: Building2, text: selectedMode === 'behavioral' && behavioralStyle === 'general' ? 'Behavioral questions based on your background' : 'Questions based on the company and role' },
+                        { icon: FileText, text: 'Feedback on your experiences, decisions, and contributions' },
                         { icon: Clock3, text: 'Timer starts after you save and begin' },
                       ].map((item) => (
-                        <div key={item.text} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm">
+                        <div key={item.text} className="flex gap-3 rounded-xl border border-[#e8ded4] bg-[#faf7f2] p-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#ad2d1f] shadow-sm">
                             <item.icon className="h-4 w-4" aria-hidden="true" />
                           </span>
                           <p className="text-sm font-bold leading-5 text-slate-600">{item.text}</p>
@@ -848,26 +902,26 @@ export function PracticeSession() {
 
   if (isResumeSessionBlocked) {
     return (
-      <main className="min-h-screen bg-slate-50 text-slate-950">
+      <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
         <Sidebar />
 
-        <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
+        <div className="min-h-[calc(100svh-4rem)] px-4 py-7 sm:px-6 sm:py-9 lg:min-h-screen lg:pl-[220px]">
           <div className="mx-auto w-full max-w-3xl space-y-6 lg:px-6">
             <header className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
-                <Link href="/practice" className="transition hover:text-slate-950">
+              <div className="flex items-center gap-2 text-sm font-bold text-[#8a7c75]">
+                <Link href="/practice" className="text-[#ad2d1f] transition hover:text-[#992719]">
                   Interview Practice
                 </Link>
-                <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
-                <span className="text-slate-950">{title}</span>
+                <ChevronRight className="h-4 w-4 text-[#a3958b]" aria-hidden="true" />
+                <span className="text-[#271f1b]">{title}</span>
               </div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">{title}</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight text-[#271f1b]">{title}</h1>
             </header>
 
-            <Card className="rounded-2xl border-amber-200 bg-amber-50 shadow-sm">
+            <Card className="rounded-[18px] border-amber-200 bg-amber-50 shadow-sm">
               <CardContent className="p-6 sm:p-7">
                 <div className="flex gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-amber-100 text-amber-700">
                     <AlertCircle className="h-6 w-6" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
@@ -883,7 +937,7 @@ export function PracticeSession() {
                   <Button
                     type="button"
                     onClick={resetPractice}
-                    className="h-11 rounded-xl bg-indigo-600 px-5 font-extrabold text-white hover:bg-indigo-700"
+                    className="h-11 rounded-xl bg-[#ad2d1f] px-5 font-extrabold text-white hover:bg-[#992719]"
                   >
                     Try Again
                   </Button>
@@ -903,33 +957,33 @@ export function PracticeSession() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
-      <div className="min-h-[calc(100svh-4rem)] px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
-        <div className="app-page-container space-y-7 lg:px-6">
-          <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
-                <Link href="/practice" className="transition hover:text-slate-950">
+      <div className="min-h-[calc(100svh-4rem)] px-4 py-6 sm:px-6 lg:min-h-screen lg:pl-[220px]">
+        <div className="app-page-container flex min-h-[calc(100svh-7rem)] flex-col gap-5 lg:min-h-[calc(100svh-3rem)] lg:px-6">
+          <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-[#8a7c75]">
+                <Link href="/practice" className="text-[#ad2d1f] transition hover:text-[#992719]">
                   Interview Practice
                 </Link>
-                <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
-                <span className="text-slate-950">{title}</span>
+                <ChevronRight className="h-4 w-4 text-[#a3958b]" aria-hidden="true" />
+                <span className="text-[#271f1b]">{title}</span>
               </div>
-              <h1 className="break-words text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
+              <h1 className="break-words text-2xl font-extrabold leading-tight tracking-tight text-[#271f1b] sm:text-[28px]">{title}</h1>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm">
-                <Clock3 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <span className="inline-flex h-10 items-center gap-2 rounded-full border border-[#e8ded4] bg-white px-4 text-sm font-extrabold text-[#271f1b] shadow-sm">
+                <Clock3 className="h-4 w-4 text-[#ad2d1f]" aria-hidden="true" />
                 {formatTime(sessionTimeSeconds)}
               </span>
               <button
                 type="button"
                 onClick={() => setShowEndSessionModal(true)}
                 disabled={isCompletingSession || isVoiceActive}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-[#e8ded4] bg-white px-5 text-sm font-extrabold text-[#71645e] shadow-sm transition hover:bg-[#faf7f2] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
                 End Session
@@ -947,13 +1001,13 @@ export function PracticeSession() {
           ) : null}
 
           {isPreparingInterview ? (
-            <section className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm sm:p-8">
+            <section className="rounded-[18px] border border-[#ead8cc] bg-white p-6 shadow-sm sm:p-8">
               <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                <span className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#fff1e9] text-[#ad2d1f]">
                   <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
                 </span>
-                <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-slate-950">Building your personalized interview</h2>
-                <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-[#271f1b]">Building your personalized interview</h2>
+                <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-[#8a7c75]">
                   The AI is preparing fresh questions for this session. Your timer will start once the first generated question is ready.
                 </p>
 
@@ -963,39 +1017,47 @@ export function PracticeSession() {
                     { icon: Bot, title: 'Planning', description: 'Sequencing interview questions' },
                     { icon: ShieldCheck, title: 'Calibrating', description: 'Preparing the feedback rubric' },
                   ].map((item) => (
-                    <div key={item.title} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm">
+                    <div key={item.title} className="rounded-xl border border-[#e8ded4] bg-[#faf7f2] p-4 text-left">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#ad2d1f] shadow-sm">
                         <item.icon className="h-4 w-4" aria-hidden="true" />
                       </span>
-                      <h3 className="mt-4 text-sm font-extrabold text-slate-950">{item.title}</h3>
-                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.description}</p>
+                      <h3 className="mt-4 text-sm font-extrabold text-[#271f1b]">{item.title}</h3>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-[#8a7c75]">{item.description}</p>
                     </div>
                   ))}
                 </div>
               </div>
             </section>
           ) : (
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_clamp(300px,23vw,360px)]">
-            <section className="space-y-5">
-              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                <div className="flex items-center gap-4">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+            <div className="grid items-start gap-5 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.38fr)]">
+            <section className="flex min-w-0 flex-col gap-4 self-stretch">
+              <article className="rounded-[18px] border border-[#e8ded4] bg-white p-5 shadow-sm sm:p-6">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff1e9] text-[#ad2d1f]">
                     <Bot className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
-                    <h2 className="text-base font-extrabold text-slate-950">AI Interviewer</h2>
-                    <p className="text-sm font-semibold text-slate-500">
+                    <h2 className="text-sm font-bold text-[#271f1b]">AI Interviewer</h2>
+                    <p className="mt-0.5 text-xs font-medium text-[#8a7c75]">
                       Question {questionNumber} of {questions.length}
                     </p>
                   </div>
                 </div>
 
-                <p className="mt-6 text-xl font-extrabold leading-tight text-slate-950">{currentQuestion.question}</p>
+                <div className="mt-4" aria-live="polite">
+                  <p className="break-words text-lg font-semibold leading-7 text-[#271f1b]">{currentQuestion.question}</p>
+                </div>
               </article>
 
-              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                <h2 className="text-base font-extrabold text-slate-950">Your Answer</h2>
+              <article className="flex flex-1 flex-col rounded-[18px] border border-[#e8ded4] bg-white p-5 shadow-sm sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="interview-answer" className="text-base font-extrabold text-[#271f1b]">Your answer</label>
+                  <span className="rounded-full bg-[#faf7f2] px-3 py-1 text-xs font-semibold text-[#71645e]">{words} {words === 1 ? 'word' : 'words'}</span>
+                </div>
+                <p id="answer-hint" className="mt-1 text-sm leading-6 text-[#8a7c75]">Write your response or use the microphone to talk it through.</p>
                 <textarea
+                  id="interview-answer"
+                  aria-describedby="answer-hint"
                   value={answer}
                   onChange={(event) => {
                     setAnswer(event.target.value);
@@ -1004,14 +1066,14 @@ export function PracticeSession() {
                     }
                   }}
                   placeholder="Type your answer or record it below..."
-                  className="mt-4 min-h-[150px] w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-800 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  className="mt-3 min-h-[240px] w-full flex-1 resize-y rounded-xl border border-[#e8ded4] bg-[#fdfbf8] p-4 text-sm font-normal leading-6 text-[#443730] outline-none transition placeholder:text-[#a3958b] focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                 />
 
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className={cn(
+                  'mt-4 flex flex-col gap-4 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4',
+                  isRecording ? 'border-rose-200 bg-rose-50' : 'border-[#f0e2d7] bg-[#fcf7f2]',
+                )}>
                   <div className="min-w-0 space-y-2" aria-live="polite">
-                    <p className="text-sm font-bold text-slate-500">
-                      {words} {words === 1 ? 'word' : 'words'}
-                    </p>
                     {isSubmitted ? <p className="text-sm font-bold text-emerald-600">Answer submitted.</p> : null}
                     <p
                       className={cn(
@@ -1020,10 +1082,10 @@ export function PracticeSession() {
                         (transcriptionPhase === 'requesting_permission' ||
                           transcriptionPhase === 'uploading' ||
                           transcriptionPhase === 'transcribing') &&
-                          'text-indigo-700',
+                          'text-[#992719]',
                         transcriptionPhase === 'completed' && 'text-emerald-700',
                         (transcriptionPhase === 'idle' || transcriptionPhase === 'error') &&
-                          'text-slate-500',
+                          'text-[#8a7c75]',
                       )}
                     >
                       {isRecording ? (
@@ -1038,7 +1100,7 @@ export function PracticeSession() {
                       {voiceStatusLabel}
                     </p>
                     {transcriptionPhase === 'completed' ? (
-                      <p className="max-w-md text-sm font-semibold text-slate-500">
+                      <p className="max-w-md text-sm font-semibold text-[#8a7c75]">
                         Review and edit the transcript before submitting your answer.
                       </p>
                     ) : null}
@@ -1063,21 +1125,27 @@ export function PracticeSession() {
                       (!assistantSessionId && !isVoiceActive)
                     }
                     className={cn(
-                      'inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-extrabold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto',
+                      'inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-3 rounded-full border py-2 pl-2 pr-5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ad2d1f] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:w-auto',
                       isRecording
-                        ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                        ? 'border-rose-700 bg-rose-700 text-white shadow-[0_4px_14px_rgba(190,18,60,0.20)] hover:bg-rose-800'
                         : isTranscriptionBusy
-                          ? 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                          ? 'border-[#d8c9bc] bg-white text-[#71645e] hover:bg-[#f5efe8]'
+                          : 'border-[#ad2d1f] bg-[#ad2d1f] text-white shadow-[0_4px_14px_rgba(173,45,31,0.22)] hover:bg-[#992719] hover:shadow-[0_6px_18px_rgba(173,45,31,0.28)]',
                     )}
                   >
-                    {isRecording ? (
-                      <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
-                    ) : isTranscriptionBusy ? (
-                      <X className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Mic className="h-4 w-4" aria-hidden="true" />
-                    )}
+                    <span className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                      isTranscriptionBusy ? 'bg-[#f5efe8]' : 'bg-white/15',
+                      isRecording && 'motion-safe:animate-pulse',
+                    )}>
+                      {isRecording ? (
+                        <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                      ) : isTranscriptionBusy ? (
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <Mic className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </span>
                     {recordingButtonLabel}
                   </button>
                 </div>
@@ -1095,7 +1163,7 @@ export function PracticeSession() {
                   type="button"
                   onClick={handleSkipQuestion}
                   disabled={isCompletingSession || isSubmittingAnswer || isPreparingAssistant || isVoiceActive}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 text-sm font-extrabold text-slate-500 transition hover:text-slate-950 sm:w-auto"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 text-sm font-extrabold text-[#8a7c75] rounded-full px-3 transition hover:bg-[#f5efe8] hover:text-[#271f1b] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                   <SkipForward className="h-4 w-4" aria-hidden="true" />
                   Skip Question
@@ -1105,7 +1173,7 @@ export function PracticeSession() {
                   type="button"
                   onClick={handleSubmitAnswer}
                   disabled={!canSubmit}
-                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-7 text-sm font-extrabold text-white shadow-sm shadow-indigo-100 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-indigo-300 sm:w-auto"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#ad2d1f] px-7 text-sm font-extrabold text-white shadow-[0_8px_16px_rgba(173,45,31,0.20)] transition hover:bg-[#ad2d1f] disabled:cursor-not-allowed disabled:bg-indigo-300 sm:w-auto"
                 >
                   {isCompletingSession || isSubmittingAnswer || isPreparingAssistant ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                   {isPreparingAssistant
@@ -1123,32 +1191,32 @@ export function PracticeSession() {
               </div>
             </section>
 
-            <aside className="space-y-5">
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <aside className="space-y-4 xl:sticky xl:top-6">
+              <section className="rounded-[18px] border border-[#e8ded4] bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-extrabold text-slate-500">Session Progress</h2>
-                  <span className="text-sm font-extrabold text-slate-950">
+                  <h2 className="text-sm font-extrabold text-[#271f1b]">Session progress</h2>
+                  <span className="text-sm font-extrabold text-[#271f1b]">
                     {questionNumber}/{questions.length}
                   </span>
                 </div>
-                <Progress value={progressValue} className="mt-4 h-2 bg-indigo-100" />
+                <Progress value={progressValue} aria-label="Interview question progress" className="mt-4 h-2 bg-[#f1e5d9] [&>div]:bg-none [&>div]:bg-[#ad2d1f]" />
 
-                <div className="mt-6 space-y-4">
-                  <div className="flex items-center gap-3 text-slate-500">
+                <div className="mt-5 space-y-3">
+                  <div className="flex items-center gap-3 text-[#8a7c75]">
                     <Clock3 className="h-5 w-5" aria-hidden="true" />
                     <span className="flex-1 text-sm font-extrabold">Session Time</span>
-                    <span className="text-sm font-extrabold text-slate-950">{formatTime(sessionTimeSeconds)}</span>
+                    <span className="text-sm font-extrabold text-[#271f1b]">{formatTime(sessionTimeSeconds)}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-slate-500">
+                  <div className="flex items-center gap-3 text-[#8a7c75]">
                     <Mic className="h-5 w-5" aria-hidden="true" />
                     <span className="flex-1 text-sm font-extrabold">Voice Input</span>
                     <span
                       className={cn(
                         'text-sm font-extrabold',
                         isRecording && 'text-rose-700',
-                        isTranscriptionBusy && 'text-indigo-700',
+                        isTranscriptionBusy && 'text-[#992719]',
                         transcriptionPhase === 'completed' && 'text-emerald-700',
-                        !isVoiceActive && transcriptionPhase !== 'completed' && 'text-slate-500',
+                        !isVoiceActive && transcriptionPhase !== 'completed' && 'text-[#8a7c75]',
                       )}
                     >
                       {voiceSummaryLabel}
@@ -1157,25 +1225,25 @@ export function PracticeSession() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-slate-100/70 p-6 shadow-sm">
+              <section className="rounded-[18px] border border-[#e8ded4] bg-[#fff8e8] p-5 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-50 text-amber-500">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ffedb8] text-[#a76c19]">
                     <Lightbulb className="h-5 w-5" aria-hidden="true" />
                   </span>
-                  <h2 className="text-lg font-extrabold text-slate-950">Tips</h2>
+                  <h2 className="text-base font-extrabold text-[#271f1b]">A little guidance</h2>
                 </div>
 
-                <ul className="mt-5 space-y-4 text-sm font-semibold leading-6 text-slate-500">
+                <ul className="mt-4 space-y-3 text-sm font-medium leading-6 text-[#71645e]">
                   <li className="flex gap-3">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#ad2d1f]" />
                     <span>Use the STAR method: Situation, Task, Action, Result.</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#ad2d1f]" />
                     <span>Take a breath before answering — clarity beats speed.</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#ad2d1f]" />
                     <span>Give specific examples rather than general statements.</span>
                   </li>
                 </ul>
@@ -1188,14 +1256,14 @@ export function PracticeSession() {
 
       {showEndSessionModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4">
-          <section className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-extrabold text-slate-950">End interview session?</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">Your current progress will be saved for this session.</p>
+          <section className="w-full max-w-sm rounded-[18px] border border-[#e8ded4] bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-extrabold text-[#271f1b]">End interview session?</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#8a7c75]">Your current progress will be saved for this session.</p>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowEndSessionModal(false)}
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-[#e8ded4] bg-white px-4 text-sm font-bold text-[#71645e] transition hover:bg-[#faf7f2]"
               >
                 Cancel
               </button>
@@ -1203,7 +1271,7 @@ export function PracticeSession() {
                 type="button"
                 onClick={handleConfirmEndSession}
                 disabled={isCompletingSession || isVoiceActive}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#ad2d1f] px-4 text-sm font-bold text-white transition hover:bg-[#992719] disabled:cursor-not-allowed disabled:bg-indigo-300"
               >
                 {isCompletingSession ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                 {isCompletingSession ? 'Generating...' : 'End Session'}

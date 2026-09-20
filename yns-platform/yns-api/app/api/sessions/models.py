@@ -8,6 +8,8 @@ from app.core.schemas.session import PlannedQuestion, SessionPlan
 
 class CreateSessionRequest(BaseModel):
     session_type: str
+    use_job_posting: bool = True
+    job_posting_id: str | None = None
 
 
 class CreateSessionResponse(BaseModel):

@@ -65,3 +65,10 @@ export async function saveCurrentJobPosting(draft: JobPostingDraft): Promise<Job
 
   return toDraft(data) as JobPostingDraft;
 }
+
+export function importJobPosting(url: string) {
+  return apiFetch<JobPostingDraft>('/api/job-postings/import', {
+    method: 'POST',
+    body: JSON.stringify({ url: url.trim() }),
+  });
+}

@@ -13,7 +13,7 @@ profile and interview data is stored in Cloud SQL.
 """
 
 
-def get_student_profile(user_id: str) -> dict[str, Any] | None:
+def get_student_profile(user_id: str, job_posting_id: str | None = None) -> dict[str, Any] | None:
     with SessionLocal() as db:
         user = db.get(AppUser, user_id)
         if user is None:
@@ -37,6 +37,7 @@ def get_student_profile(user_id: str) -> dict[str, Any] | None:
         job_posting = (
             db.query(JobPosting)
             .filter(JobPosting.user_id == user_id)
+            .filter(JobPosting.id == job_posting_id if job_posting_id else True)
             .order_by(JobPosting.created_at.desc().nullslast())
             .first()
         )
@@ -77,7 +78,7 @@ def build_student_profile(raw: dict[str, Any]) -> StudentProfile:
 
     job_posting_facts = None
     if raw.get("job_posting_parsed_facts"):
-        job_posting_facts = JobPostingFacts(**raw["job_posting_parsed_facts"])
+        job_posting_facts = JobPostingFacts(**{**raw["job_posting_parsed_facts"], "company": raw.get("job_posting_company"), "job_title": raw.get("job_posting_title")})
 
     return StudentProfile(
         student_id=raw["user_id"],

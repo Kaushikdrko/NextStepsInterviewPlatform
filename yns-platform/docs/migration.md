@@ -4,8 +4,10 @@ Moving the database to Cloud SQL and auth to Google Identity Platform
 (Firebase Auth). Staging first with test data, prove it works, then
 production as a controlled cutover.
 
-**Do not touch the Supabase project during any of this.** It stays live and
-untouched as the rollback path until production is migrated and verified.
+**Do not delete, disable, pause, or freeze the Supabase project.** Supabase
+Storage remains a live dependency because resume file bytes are stored in the
+`resumes` bucket. Supabase also remains part of the rollback plan until resume
+storage is migrated to Google Cloud Storage and production is verified.
 
 Related context: `docs/claude.md` (current architecture) and
 `docs/DEPLOYMENT.md` (the staging Cloud Run pipeline this builds on).
@@ -127,7 +129,7 @@ anything else.
       Dashboard's aggregate queries (`app/api/champion/service.py`) already
       read from Cloud SQL's copy of these tables, so it had been silently
       serving stale Phase-1 data the whole time. Resume file bytes stay in
-      Supabase Storage either way — `app/services/supabase_client.py` is now
+      Supabase Storage either way — `app/services/supabase_storage.py` is now
       Storage-only.
 - [x] **Config/secrets:** dropped `pyjwt`/`certifi`/dead `anthropic` line;
       added `firebase-admin`/`resend`/`python-multipart`. `RESEND_API_KEY`
@@ -193,10 +195,12 @@ so this doesn't silently repeat.
 - [ ] Repeat the data load (Phase 1) and user import (Phase 2) against
       production — same UID-preservation, verified the same way.
 - [ ] Cutover = switch production config to Cloud SQL + Identity Platform.
-      Keep Supabase frozen and intact as rollback.
-- [ ] Rollback: switch config back to Supabase if anything's wrong. Don't
-      delete the Supabase project until production has run clean for a
-      couple of weeks.
+      Keep Supabase live and intact. It remains the resume-file storage
+      provider and is also required for rollback.
+- [ ] Rollback: switch config back to Supabase if anything's wrong. Do not
+      delete Supabase until all resume files have been migrated to Google
+      Cloud Storage, the application has been switched to GCS, and the
+      migration has been verified in production.
 
 ---
 

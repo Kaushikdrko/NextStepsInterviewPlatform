@@ -79,21 +79,21 @@ export function ResumeCard({ className }: ResumeCardProps) {
   const uploadedOn = formatDate(resume?.created_at);
 
   return (
-    <section id="resume" className={cn('scroll-mt-6 rounded-[10px] border border-slate-200 bg-white p-5 shadow-sm', className)}>
+    <section id="resume" className={cn('scroll-mt-6 rounded-[10px] border border-[#e8ded4] bg-white p-5 shadow-sm', className)}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-bold text-slate-950">Resume</h2>
-        {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" aria-hidden="true" /> : null}
+        <h2 className="text-base font-bold text-[#271f1b]">Resume</h2>
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-[#a3958b]" aria-hidden="true" /> : null}
       </div>
 
       {error ? <p className="mt-3 text-xs font-semibold leading-5 text-rose-600">{error}</p> : null}
 
       {!isLoading && !error && !resume ? (
-        <div className="mt-4 flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
+        <div className="mt-4 flex flex-col items-center gap-2 rounded-lg border border-dashed border-[#e8ded4] bg-[#faf7f2]/60 p-8 text-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#fff1e9] text-[#ad2d1f]">
             <FileText className="h-5 w-5" aria-hidden="true" />
           </span>
-          <p className="text-sm font-bold text-slate-950">No resume uploaded yet</p>
-          <p className="max-w-xs text-xs font-semibold text-slate-500">
+          <p className="text-sm font-bold text-[#271f1b]">No resume uploaded yet</p>
+          <p className="max-w-xs text-xs font-semibold text-[#8a7c75]">
             Upload your resume from the panel on the right to see your experience, education, and skills here.
           </p>
         </div>
@@ -101,14 +101,14 @@ export function ResumeCard({ className }: ResumeCardProps) {
 
       {!isLoading && !error && resume ? (
         <div className="mt-4 space-y-4">
-          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
+          <div className="flex items-center gap-3 rounded-lg border border-[#e8ded4] bg-[#faf7f2]/60 p-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff1e9] text-[#ad2d1f]">
               <FileText className="h-4 w-4" aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-slate-950">{resume.file_name ?? 'Resume'}</p>
+              <p className="truncate text-sm font-bold text-[#271f1b]">{resume.file_name ?? 'Resume'}</p>
               {uploadedOn ? (
-                <p className="flex items-center gap-1 text-xs font-bold text-slate-500">
+                <p className="flex items-center gap-1 text-xs font-bold text-[#8a7c75]">
                   <Clock className="h-3 w-3" aria-hidden="true" />
                   Uploaded {uploadedOn}
                 </p>
@@ -117,7 +117,7 @@ export function ResumeCard({ className }: ResumeCardProps) {
           </div>
 
           {!facts ? (
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-xs font-bold text-slate-500">
+            <div className="flex items-center gap-2 rounded-lg border border-[#e8ded4] bg-[#faf7f2]/60 p-3 text-xs font-bold text-[#8a7c75]">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Still processing your resume — check back in a moment.
             </div>
@@ -126,20 +126,20 @@ export function ResumeCard({ className }: ResumeCardProps) {
               <ResumeSection title="Experience" icon={Briefcase} items={facts.experiences} />
               <ResumeSection title="Education" icon={GraduationCap} items={facts.education} />
 
-              <div className="border-t border-slate-200 pt-4">
-                <p className="flex items-center gap-2 text-xs font-bold text-slate-500">
+              <div className="border-t border-[#e8ded4] pt-4">
+                <p className="flex items-center gap-2 text-xs font-bold text-[#8a7c75]">
                   <Layers3 className="h-3.5 w-3.5" aria-hidden="true" />
                   Skills
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {facts.skills && facts.skills.length > 0 ? (
                     facts.skills.map((skill) => (
-                      <Badge key={skill} className="border-0 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                      <Badge key={skill} className="border-0 bg-[#f5efe8] px-2.5 py-1 text-xs font-bold text-[#71645e]">
                         {skill}
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-xs font-bold text-slate-500">No skills extracted</span>
+                    <span className="text-xs font-bold text-[#8a7c75]">No skills extracted</span>
                   )}
                 </div>
               </div>
@@ -161,8 +161,8 @@ function ResumeSection({ title, icon: Icon, items }: ResumeSectionProps) {
   if (!items || items.length === 0) return null;
 
   return (
-    <div className="border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
-      <p className="flex items-center gap-2 text-xs font-bold text-slate-500">
+    <div className="border-t border-[#e8ded4] pt-4 first:border-t-0 first:pt-0">
+      <p className="flex items-center gap-2 text-xs font-bold text-[#8a7c75]">
         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         {title}
       </p>
@@ -170,7 +170,7 @@ function ResumeSection({ title, icon: Icon, items }: ResumeSectionProps) {
         {items.map((item, index) => (
           <li
             key={`${title}-${index}`}
-            className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-sm font-semibold leading-6 text-slate-700"
+            className="rounded-lg border border-[#e8ded4] bg-[#faf7f2]/60 p-3 text-sm font-semibold leading-6 text-[#71645e]"
           >
             {item}
           </li>

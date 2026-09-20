@@ -26,6 +26,12 @@ def _summarize_job_posting(student_profile: StudentProfile) -> str | None:
     if facts is None:
         return None
     parts = []
+    if facts.company:
+        parts.append("Company: " + facts.company)
+    if facts.job_title:
+        parts.append("Job title: " + facts.job_title)
+    if facts.company_values:
+        parts.append("Stated company values: " + ", ".join(facts.company_values))
     if facts.required_skills:
         parts.append("Required skills: " + ", ".join(facts.required_skills))
     if facts.preferred_skills:

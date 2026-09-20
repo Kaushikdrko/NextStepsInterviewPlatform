@@ -23,6 +23,7 @@ from app.core.assistants.interviewer import get_interviewer_response
 from app.core.assistants.job_posting_parser import parse_job_posting_text
 from app.core.assistants.planner import plan_session
 from app.core.schemas.session import PlannedQuestion
+from app.core.schemas.student import JobPostingFacts
 from app.services.resume_parser import parse_resume_pdf
 from app.dependencies import get_current_student
 from app.services.profile_store import (
@@ -60,10 +61,15 @@ def _storage_session_type(session_type: str) -> str:
     return "mixed" if session_type in {"resume", "job_posting"} else session_type
 
 
-def _load_profile(user_id: str):
-    raw = get_student_profile(user_id)
+def _load_profile(user_id: str, use_job_posting: bool = True, job_posting_id: str | None = None):
+    raw = get_student_profile(user_id, job_posting_id) if job_posting_id else get_student_profile(user_id)
     if raw is None:
         raise HTTPException(status_code=404, detail="Profile not found — complete onboarding first")
+
+    if job_posting_id and not raw.get("job_posting_id"):
+        raise HTTPException(status_code=404, detail="Job posting not found")
+    if not use_job_posting:
+        raw = {**raw, "job_posting_id": None, "job_posting_parsed_facts": None}
 
     if (
         raw.get("job_posting_id")
@@ -77,7 +83,9 @@ def _load_profile(user_id: str):
                 company=raw.get("job_posting_company"),
                 job_title=raw.get("job_posting_title"),
             )
-        except Exception:
+        except Exception as exc:
+            if job_posting_id:
+                raise HTTPException(status_code=502, detail="Unable to analyze the job description. Please try again.") from exc
             facts = None
 
         if facts is not None:
@@ -314,8 +322,10 @@ def create_session(
     if body.session_type == "resume":
         _ensure_resume_ready_for_session(user_id)
 
-    profile = _load_profile(user_id)
+    profile = _load_profile(user_id, body.use_job_posting, body.job_posting_id)
     plan = plan_session(profile, body.session_type)
+    plan.job_posting_context = profile.job_posting_facts
+    plan.use_job_posting = body.use_job_posting
 
     row = write_session(
         {
@@ -368,7 +378,9 @@ def submit_turn(
             session_complete=session_complete,
         )
 
-    profile = _load_profile(user_id)
+    profile = _load_profile(user_id, use_job_posting=False)
+    context = session["session_plan"].get("job_posting_context")
+    profile.job_posting_facts = JobPostingFacts(**context) if context else None
 
     recent_turns = [
         {"question": t["question"]["text"], "answer": t["answer_text"]}

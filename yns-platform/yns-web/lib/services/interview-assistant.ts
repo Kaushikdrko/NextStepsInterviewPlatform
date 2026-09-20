@@ -206,10 +206,10 @@ export function getAssistantSessionType(mode: string): AssistantSessionType | nu
   return null;
 }
 
-export function createAssistantSession(sessionType: AssistantSessionType) {
+export function createAssistantSession(sessionType: AssistantSessionType, options?: { use_job_posting: boolean; job_posting_id?: string }) {
   return assistantFetch<CreateAssistantSessionResponse>('/api/sessions/', {
     method: 'POST',
-    body: JSON.stringify({ session_type: sessionType }),
+    body: JSON.stringify({ session_type: sessionType, ...options }),
   });
 }
 

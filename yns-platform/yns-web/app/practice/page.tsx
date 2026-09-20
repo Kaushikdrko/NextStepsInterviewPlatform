@@ -39,27 +39,27 @@ const practiceModes = [
 
 export default function PracticePage() {
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen bg-[#faf7f2] text-[#271f1b]">
       <Sidebar />
 
       <div className="flex min-h-[calc(100svh-4rem)] items-center px-4 py-8 sm:px-6 lg:min-h-screen lg:pl-[220px]">
         <div className="mx-auto w-full max-w-3xl space-y-7">
           <header className="space-y-3 text-center">
-            <div className="flex items-center justify-center gap-2 text-sm font-bold text-slate-500">
-              <Link href="/dashboard" className="transition hover:text-slate-950">
+            <div className="flex items-center justify-center gap-2 text-sm font-bold text-[#8a7c75]">
+              <Link href="/dashboard" className="text-[#ad2d1f] transition hover:text-[#992719]">
                 Dashboard
               </Link>
-              <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
-              <span className="text-slate-950">Practice</span>
+              <ChevronRight className="h-4 w-4 text-[#a3958b]" aria-hidden="true" />
+              <span className="text-[#271f1b]">Practice</span>
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">Choose a Practice Mode</h1>
-              <p className="text-base font-semibold text-slate-500">Select the type of interview you&apos;d like to practice today.</p>
+              <h1 className="text-2xl font-extrabold tracking-tight text-[#271f1b] sm:text-3xl">Choose a Practice Mode</h1>
+              <p className="text-base font-semibold text-[#8a7c75]">Select the type of interview you&apos;d like to practice today.</p>
             </div>
           </header>
 
-          <section className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+          <section aria-label="Practice modes" className="mx-auto flex w-full max-w-2xl flex-col gap-4">
             {practiceModes.map((mode) => (
               <PracticeModeCard key={mode.title} {...mode} />
             ))}
@@ -77,21 +77,21 @@ function PracticeModeCard({ title, description, href, icon: Icon }: PracticeMode
     <Link
       href={href}
       className={cn(
-        'group flex min-h-[104px] w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition sm:gap-4',
-        'hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
+        'group flex min-h-[104px] w-full items-center gap-3 rounded-xl border border-[#e8ded4] bg-white p-4 text-left shadow-sm transition sm:gap-4',
+        'hover:-translate-y-0.5 hover:border-[#d8b6a4] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ad2d1f] focus-visible:ring-offset-2',
         'sm:p-5',
       )}
     >
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#fff1e9] text-[#ad2d1f]">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
 
       <span className="min-w-0 flex-1 space-y-1.5">
-        <span className="block text-lg font-extrabold leading-tight text-slate-950">{title}</span>
-        <span className="block max-w-md text-sm font-semibold leading-6 text-slate-500">{description}</span>
+        <span className="block text-lg font-extrabold leading-tight text-[#271f1b]">{title}</span>
+        <span className="block max-w-md text-sm font-semibold leading-6 text-[#8a7c75]">{description}</span>
       </span>
 
-      <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-indigo-600" aria-hidden="true" />
+      <ChevronRight className="h-5 w-5 shrink-0 text-[#a3958b] transition group-hover:translate-x-1 group-hover:text-[#ad2d1f]" aria-hidden="true" />
     </Link>
   );
 }
