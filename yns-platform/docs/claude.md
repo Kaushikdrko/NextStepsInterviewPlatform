@@ -44,7 +44,7 @@ quotes — never generic ("good communication skills" fails the bar).
 | Styling | Tailwind v4 + shadcn/ui (`components/ui/`) |
 | Auth | Firebase Auth / Google Identity Platform (email + password), via the Firebase JS SDK (`yns-web/lib/firebase/client.ts`) and `firebase-admin` (`yns-api`). Staging only — see migration status above. |
 | AI service | FastAPI (Python 3.12) |
-| LLM | Gemini Flash-Lite via Vertex AI (`gemini-2.5-flash-lite`, confirm current GA ID before assuming this is still current) |
+| LLM | Gemini Flash-Lite via Vertex AI (`gemini-3.1-flash-lite`) |
 | Database | Cloud SQL Postgres 15 (`yns-interview-postgres`, staging), no RLS — `require_*` dependency checks in `app/dependencies.py` are the sole authorization layer. Every table, including `interview_sessions`/`interview_turns`/`session_reports`, lives here now. |
 | Storage | Supabase Storage, bucket `resumes` — the only thing still on Supabase; deliberately not part of the Cloud SQL/Identity Platform migration |
 | Hosting | Cloud Run, both apps (staging: `yns-interview-staging`; prod: `yns-interview-platform`) |
