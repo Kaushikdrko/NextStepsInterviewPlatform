@@ -73,7 +73,7 @@ jobs:
             --region "$REGION" \
             --project "$PROJECT_ID" \
             --service-account "$RUNTIME_SA" \
-            --set-env-vars "SUPABASE_URL=$SUPABASE_URL,FRONTEND_URL=$FRONTEND_URL,GCP_PROJECT_ID=$PROJECT_ID,GEMINI_MODEL=gemini-3.1-flash-lite,VOICE_BUCKET=$VOICE_BUCKET,OTP_BYPASS=$OTP_BYPASS" \
+            --set-env-vars "SUPABASE_URL=$SUPABASE_URL,FRONTEND_URL=$FRONTEND_URL,GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=us,GEMINI_MODEL=gemini-3.5-flash-lite,VOICE_BUCKET=$VOICE_BUCKET,OTP_BYPASS=$OTP_BYPASS" \
             --set-secrets "DATABASE_URL=database-url:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,RESEND_API_KEY=resend-api-key:latest" \
             --add-cloudsql-instances "${PROJECT_ID}:${REGION}:yns-interview-postgres" \
             --allow-unauthenticated \
